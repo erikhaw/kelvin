@@ -1156,7 +1156,7 @@ def quizz_enroll(request, assignment_id):
     """
     if enrolled_quizz.submitted:
         if assigned_quizz.publish_results:
-            return HttpResponseRedirect(f"/quizz/result/{enrolled_quizz.id}")
+            return HttpResponseRedirect(reverse("quizz_result", args=[enrolled_quizz.id]))
         else:
             return HttpResponseRedirect("/")
 
