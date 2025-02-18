@@ -57,7 +57,7 @@ class Quizz(models.Model):
         return os.path.join(self.get_directory_path(), ".quizz_id")
 
     """
-    Method that returns a DTO of the quizz
+    Method that returns a DTO of the quizz.
     """
     def get_dto(self):
         return from_yaml(QuizzDto, self.read())
@@ -105,15 +105,10 @@ class AssignedQuizz(models.Model):
         return f"{self.quizz.title} {self.clazz}"
 
     """
-    Method that returns the maximum points of the assigned quizz, None if quizz file is missing or is corrupted.
+    Method that returns the maximum points of the assigned quizz.
     """
     def max_points(self):
-        quizz_dto = self.quizz.get_dto()
-
-        if quizz_dto is None:
-            return None
-
-        return sum(map(lambda q: q.points, quizz_dto.questions))
+        return sum(map(lambda q: q.points, self.quizz.get_dto().questions))
 
 
 """
