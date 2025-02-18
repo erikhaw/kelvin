@@ -642,7 +642,7 @@ onUnmounted(() => {
                   <button
                       @click="removeQuestion(element.hiddenId)"
                       class="btn btn-outline-danger float-end"
-                      title="Smazat otázku"
+                      title="Delete question"
                   >
                     ✕
                   </button>
