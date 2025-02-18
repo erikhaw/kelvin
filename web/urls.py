@@ -136,4 +136,13 @@ urlpatterns = [
     path("tasks", teacher_view.all_tasks, name="tasks"),
     path("reevaluate/<int:submit_id>", teacher_view.reevaluate, name="reevaluate"),
     path("api_token", common_view.api_token, name="api_token"),
+    path("quizz/result/<int:enrolled_id>", student_view.quizz_result, name="quizz_result"),
+    path("quizz/<int:assignment_id>/", student_view.quizz_enroll, name="quizz_enroll"),
+    path("quizz/enrolling/<int:assignment_id>/", student_view.quizz_enrolling, name="quizz_enrolling"),
+    path("quizz/<path:quizz_src>/asset/<path:asset_path>", student_view.quizz_asset, name="quizz_asset"),
+    path("teacher/quizzes", teacher_view.quizz_list, name="quizz_list"),
+    path("teacher/quizz/<int:quizz_id>", teacher_view.quizz_detail, name="quizz_detail"),
+    path("teacher/quizz/<int:quizz_id>/edit", teacher_view.quizz_edit, name="quizz_edit"),
+    path("teacher/quizz/scoring/<int:enrolled_id>", teacher_view.quizz_scoring, name="quizz_scoring"),
+    path("teacher/quizz/<int:quizz_id>/submits", teacher_view.quizz_submits, name="quizz_submits")
 ]

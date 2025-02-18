@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "django_cas_ng",
     "notifications",
     "webpush",
+    "quizz"
 ]
 
 MIDDLEWARE = [
@@ -78,6 +79,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_cas_ng.middleware.CASMiddleware",
+    "quizz.middleware.QuizzEnrollRedirectMiddleware",
 ]
 
 ROOT_URLCONF = "kelvin.urls"

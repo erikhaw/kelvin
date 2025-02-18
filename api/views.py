@@ -1,11 +1,22 @@
+import datetime
 from collections import defaultdict
 
 import django.http
+from django.db import transaction
 from django.shortcuts import get_object_or_404, resolve_url
+from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotFound, HttpResponse, HttpResponseRedirect, \
+    HttpResponseForbidden
+from django.utils import timezone
 from django.http import HttpRequest, HttpResponseBadRequest
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.models import User
 from django.urls import reverse
+from numpy.lib.recfunctions import assign_fields_by_name
+from serde.json import from_json
+from serde.yaml import to_yaml
+from unidecode import unidecode
+from kelvin.settings import BASE_DIR
+
 from common.models import (
     Submit,
     Class,
@@ -17,6 +28,7 @@ from common.models import (
     current_semester,
     submit_assignment_path,
 )
+
 from common.evaluate import evaluate_submit
 from django.http import JsonResponse
 from django.contrib.auth.decorators import user_passes_test
@@ -27,6 +39,7 @@ from common.utils import is_teacher, points_to_color, inbus_search_user, user_fr
 from django.contrib.auth.decorators import login_required
 import os
 import re
+import errno
 import json
 import logging
 import serde
@@ -37,11 +50,15 @@ import common.bulk_import
 from common.bulk_import import ImportException
 from common.inbus import inbus
 from pathlib import Path
-from shutil import copytree, ignore_patterns
+from shutil import copytree, rmtree, ignore_patterns
 from django.utils.dateparse import parse_datetime
 
-logger = logging.getLogger(__name__)
+from web.markdown_utils import process_markdown
 
+from quizz.models import Quizz, EnrolledQuizz, AssignedQuizz, quizz_assigned_classes
+from quizz.dto import QuizzDto, UpdateQuizzDto
+
+logger = logging.getLogger(__name__)
 
 @user_passes_test(is_teacher)
 def tasks_list_all(request: HttpRequest, subject_abbr: str | None = None):
@@ -101,7 +118,6 @@ def tasks_list_all(request: HttpRequest, subject_abbr: str | None = None):
             }
         )
     return JsonResponse({"tasks": result, "count": allCount})
-
 
 @user_passes_test(is_teacher)
 def all_classes(request):
@@ -218,6 +234,60 @@ def class_detail_list(request):
 
             assignments.append(assignment_data)
 
+        quizzes = []
+
+        for assigned_quizz in clazz.assignedquizz_set.all().order_by("id").select_related("quizz"):
+            quizz_data = {
+                "quizz_id": assigned_quizz.quizz_id,
+                "quizz_link": reverse(
+                    "quizz_detail",
+                    kwargs={"quizz_id": assigned_quizz.quizz_id},
+                ),
+                "quizz_edit_link": reverse(
+                    "quizz_edit",
+                    kwargs={"quizz_id": assigned_quizz.quizz_id},
+                ),
+                "assigned_id": assigned_quizz.id,
+                "name": assigned_quizz.quizz.title,
+                "name_lower": unidecode(assigned_quizz.quizz.title.replace(" ", "_")).lower(),
+                "assigned": assigned_quizz.assigned,
+                "deadline": assigned_quizz.deadline,
+                "max_points": assigned_quizz.max_points(),
+                "students": {s["username"]: {"username": s["username"]} for s in students},
+            }
+
+            for student in students:
+                student_user = User.objects.get(username=student["username"])
+
+                try:
+                    enrolled_quizz = EnrolledQuizz.objects.get(
+                        assigned_quizz_id=assigned_quizz.id, student=student_user, submitted=True
+                    )
+
+                    quizz_data["students"][student["username"]] = {
+                        "id": enrolled_quizz.id,
+                        "student": student["username"],
+                        "score": enrolled_quizz.score(),
+                        "scoring_link": reverse(
+                            "quizz_scoring",
+                            kwargs={"enrolled_id": enrolled_quizz.id}
+                        ),
+                        "max_points": enrolled_quizz.max_points,
+                        "color": points_to_color(enrolled_quizz.score(), enrolled_quizz.max_points),
+                        "submitted": enrolled_quizz.submitted,
+                        "submitted_at": enrolled_quizz.submitted_at,
+                    }
+                except EnrolledQuizz.DoesNotExist:
+                    quizz_data["students"][student["username"]] = {
+                        "student": student["username"],
+                        "score": None,
+                        "max_points": quizz_data["max_points"],
+                        "submitted": False,
+                        "submitted_at": None,
+                    }
+
+            quizzes.append(quizz_data)
+
         result.append(
             {
                 "id": clazz.pk,
@@ -227,6 +297,7 @@ def class_detail_list(request):
                 "subject_abbr": clazz.subject.abbr,
                 "csv_link": reverse("download_csv_per_class", kwargs={"class_id": clazz.pk}),
                 "assignments": assignments,
+                "quizzes": quizzes,
                 "summary": clazz.summary(request.user.username, show_output=True),
                 "students": students,
             }
@@ -833,3 +904,393 @@ def create_submit(request: django.http.HttpRequest, task_assignment: int) -> Jso
             "task": {"name": assignment.task.name},
         }
     )
+
+
+"""
+Function that gets, updates, or delete quizz and its content.
+"""
+@transaction.atomic
+@user_passes_test(is_teacher)
+def quizz_yaml(request: HttpRequest, quizz_id: int):
+    quizz = Quizz.objects.get(pk=quizz_id)
+
+    if quizz is None:
+        return HttpResponseNotFound()
+
+    if request.method == "POST":
+        content = json.loads(request.body.decode("utf-8"))
+
+        update_quizz = from_json(UpdateQuizzDto, content)
+
+        quizz.set_up_directory(update_quizz.quizz_directory)
+
+        quizz_dto = QuizzDto(shuffle=update_quizz.shuffle,
+                                   questions=update_quizz.questions)
+
+        """
+        Helper function that replaces all escape sequences in the text with the corresponding Czech characters
+        in order to quizz YAML file to be more human readable. 'to_yaml' function uses escape sequences.
+        """
+        def replace_escapes(text):
+            escape_to_char_map = {
+                "\\xC1": "Á", "\\xE1": "á",
+                "\\xC9": "É", "\\xE9": "é",
+                "\\xCD": "Í", "\\xED": "í",
+                "\\xDA": "Ú", "\\xFA": "ú",
+                "\\xDD": "Ý", "\\xFD": "ý",
+                "\\u010C": "Č", "\\u010D": "č",
+                "\\u010E": "Ď", "\\u010F": "ď",
+                "\\u011A": "Ě", "\\u011B": "ě",
+                "\\u0147": "Ň", "\\u0148": "ň",
+                "\\u0158": "Ř", "\\u0159": "ř",
+                "\\u0160": "Š", "\\u0161": "š",
+                "\\u0164": "Ť", "\\u0165": "ť",
+                "\\u017D": "Ž", "\\u017E": "ž",
+                "\\u016E": "Ů", "\\u016F": "ů",
+            }
+
+            for escape, ch in escape_to_char_map.items():
+                text = text.replace(escape, ch)
+            return text
+
+        quizz.write(replace_escapes(to_yaml(quizz_dto)))
+    elif request.method == "DELETE":
+        if quizz.assignedquizz_set.count() == 0:
+            rmtree(quizz.get_directory_path())
+            quizz.delete()
+            return JsonResponse({"redirect": reverse("quizz_list")})
+
+    return JsonResponse({"yaml": quizz.read()})
+
+
+"""
+Function that stores student answers for enrolled quizz.
+"""
+@transaction.atomic
+@login_required
+def quizz_results(request: HttpRequest, enrolled_id: int, is_submit: int):
+    enrolled_quizz = get_object_or_404(EnrolledQuizz, pk=enrolled_id)
+
+    if request.user.id != enrolled_quizz.student.id:
+        return HttpResponseForbidden()
+
+    if enrolled_quizz.submitted:
+        return HttpResponseForbidden()
+
+    content = json.loads(request.body.decode("utf-8"))
+
+    enrolled_quizz.submit = content
+
+    if is_submit:
+        enrolled_quizz.submitted = True
+        enrolled_quizz.submitted_at = timezone.now()
+        enrolled_quizz.save()
+        enrolled_quizz.score_questions()
+        return JsonResponse({"redirect": "/"})
+
+    enrolled_quizz.save()
+
+    return JsonResponse({"message": "Answers have been saved."})
+
+
+"""
+Function that stores quizz scoring.
+"""
+@transaction.atomic
+@user_passes_test(is_teacher)
+def quizz_scoring(request: HttpRequest, enrolled_id: int):
+    enrolled_quizz = get_object_or_404(EnrolledQuizz, pk=enrolled_id)
+
+    scoring = json.loads(request.body.decode("utf-8"))
+
+    teacher = request.user
+
+    if enrolled_quizz.scored_by is None:
+        enrolled_quizz.scored_by = teacher
+    elif enrolled_quizz.scored_by.id != teacher.id:
+        return HttpResponseForbidden()
+
+    enrolled_quizz.scoring = scoring
+
+    enrolled_quizz.save()
+
+    return JsonResponse({"message": "Scoring has been updated."})
+
+
+"""
+Function to assign or remove quizzes from classes.
+"""
+@transaction.atomic
+@user_passes_test(is_teacher)
+def quizz_assignments(request: HttpRequest, quizz_id: int):
+    quizz = get_object_or_404(Quizz, pk=quizz_id)
+
+    if request.method == 'POST':
+        post = json.loads(request.body.decode("utf-8"))
+        for assignment in post["assignments"]:
+            if (assignment.get("id") and
+                assignment.get("assigned") and
+                assignment.get("deadline") and
+                assignment.get("duration")
+                ):
+                    """
+                    If assignment already exist, update it.
+                    Otherwise, create new assignment.
+                    """
+                    if assignment.get("assigned_id"):
+                        assigned_quizz = AssignedQuizz.objects.get(pk=assignment["assigned_id"])
+
+                        assigned_quizz.deadline = datetime.datetime.fromisoformat(assignment["deadline"])
+                        assigned_quizz.assigned = datetime.datetime.fromisoformat(assignment["assigned"])
+                        assigned_quizz.duration = assignment["duration"]
+                        assigned_quizz.publish_results = assignment.get("publish_results", False)
+                    else:
+                        assigned_quizz = AssignedQuizz.objects.create(clazz_id=assignment["id"], quizz_id=quizz.pk,
+                                                                      deadline=assignment["deadline"],
+                                                                      assigned=assignment["assigned"],
+                                                                      duration=assignment["duration"],
+                                                                      publish_results=assignment.get("publish_results", False))
+
+                    assigned_quizz.save()
+            else:
+                """
+                If the assignment is not complete, it will be deleted if possible.
+                """
+                if assignment.get("assigned_id"):
+                    try:
+                        assigned_quizz = AssignedQuizz.objects.get(pk=assignment["assigned_id"])
+
+                        if assigned_quizz.enrolledquizz_set.count() == 0:
+                            assigned_quizz.delete()
+                    except AssignedQuizz.DoesNotExist:
+                        pass
+
+    return JsonResponse(
+        {"message": "Assignments have been updated.", "assignments": quizz_assigned_classes(quizz, request.user.id),
+         "quizz_deletable": quizz.assignedquizz_set.count() == 0}
+    )
+
+
+"""
+Function that convert markdown question to HTML and then returns it.
+"""
+@user_passes_test(is_teacher)
+def quizz_question_preview(request: HttpRequest, quizz_id: int):
+    quizz = Quizz.objects.get(pk=quizz_id)
+
+    if quizz is None:
+        return HttpResponseNotFound()
+
+    content = json.loads(request.body.decode("utf-8"))
+
+    markdown = process_markdown(quizz.src, content, 'quizz')
+
+    return JsonResponse({"html": markdown.content})
+
+
+"""
+Function that returns the list of all classes quizz is assigned to.
+"""
+@user_passes_test(is_teacher)
+def quizz_classes(request: HttpRequest, quizz_id: int):
+    assignments = AssignedQuizz.objects.filter(quizz=quizz_id)
+
+    classes_dto = []
+
+    for assignment in assignments:
+        classes_dto.append({
+            "classId": assignment.clazz.id,
+            "className": str(assignment.clazz),
+        })
+
+    return JsonResponse({"classes": classes_dto})
+
+
+"""
+Function that creates a new quizz.
+"""
+@transaction.atomic
+@user_passes_test(is_teacher)
+def quizz_add(request: HttpRequest):
+    if request.method == 'POST':
+        post = json.loads(request.body.decode("utf-8"))
+
+        subject = Subject.objects.get(abbr=post["subject"])
+
+        abbr = subject.abbr.upper()
+        username = request.user.username.upper()
+        dir_name = unidecode(post["name"]).replace(" ", "_").upper()
+
+        src = abbr + "/" + username + "/" + dir_name
+
+        postfix = 1
+
+        while True:
+            postfix_src = src + "_" + str(postfix)
+
+            count = Quizz.objects.filter(src=postfix_src).count()
+
+            if count == 0:
+                try:
+                    os.makedirs(os.path.join(BASE_DIR, "quizzes", postfix_src))
+
+                    break
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
+
+            postfix += 1
+
+        quizz = Quizz.objects.create(title=post["name"], subject=subject, src=postfix_src, semester=current_semester())
+
+        with open(quizz.get_identifier_path(), 'w', encoding='utf-8') as file:
+            file.write(str(quizz.id))
+
+        quizz.write("questions:\n")
+
+        return JsonResponse({'message': 'Quizz successfully added.'})
+
+    return HttpResponseBadRequest()
+
+
+"""
+Function that create a duplicate of the quizz.
+"""
+@transaction.atomic
+@user_passes_test(is_teacher)
+def quizz_duplicate(request, quizz_id):
+    quizz = get_object_or_404(Quizz, pk=quizz_id)
+    new_src = quizz.src
+
+    for user in User.objects.filter(groups__name="teachers"):
+        new_src = new_src.replace(user.username, request.user.username)
+
+    i = 1
+    while True:
+        new_src = re.sub(r"(_copy_[0-9]+$|$)", f"_copy_{i}", new_src, count=1)
+        count = Quizz.objects.filter(src=new_src).count()
+        if count == 0 and not os.path.exists(os.path.join(BASE_DIR, quizz.root, new_src)):
+            break
+        i += 1
+
+    new_path = os.path.join(BASE_DIR, quizz.root, new_src)
+    copytree(quizz.get_directory_path(), new_path, ignore=ignore_patterns(".quizz_id"))
+
+    quizz_copy = quizz
+    quizz_copy.pk = None
+    quizz_copy.src = new_src
+    quizz_copy.save()
+
+    with open(quizz.get_identifier_path(), 'w', encoding='utf-8') as file:
+        file.write(str(quizz.pk))
+
+    return JsonResponse({"id": quizz_copy.pk})
+
+
+"""
+Function that returns the list of quizzes with filtration.
+"""
+@user_passes_test(is_teacher)
+def quizzes_list_all(request: HttpRequest, subject_abbr: str | None = None):
+    count = None
+    start = None
+    order_by = "created_at"
+    sort = "desc"
+
+    filters = {}
+
+    if subject_abbr is not None:
+        filters["subject__abbr"] = subject_abbr
+    if "count" in request.GET:
+        count = int(request.GET["count"])
+    if "start" in request.GET:
+        start = int(request.GET["start"])
+    if "sort" in request.GET:
+        if request.GET["sort"] == "asc":
+            sort = "asc"
+
+    if "semester" in request.GET:
+        semester = request.GET["semester"]
+
+        try:
+            semester = Semester.objects.get(pk=int(semester))
+        except Semester.DoesNotExist:
+            return HttpResponseBadRequest()
+    else:
+        semester = current_semester()
+
+    filters["semester"] = semester.pk
+
+    if sort != "desc":
+        order = (order_by, "id")
+    else:
+        order = (f"-{order_by}", "-id")
+
+    if "search" in request.GET:
+        filters["title__icontains"] = request.GET["search"]
+
+    quizzes = Quizz.objects.filter(**filters).order_by(*order)
+
+    all_count = quizzes.count()
+
+    if start is not None:
+        quizzes = quizzes[start:]
+
+    if count is not None:
+        quizzes = quizzes[:count]
+
+    quizzes = list(map(lambda q: {
+        "id": q.pk,
+        "title": q.title,
+        "subject": q.subject.abbr,
+        "date": q.created_at,
+        "editLink": resolve_url("quizz_edit", quizz_id=q.pk),
+        "submitsLink": resolve_url("quizz_submits", quizz_id=q.pk),
+    }, quizzes))
+
+    return JsonResponse({"quizzes": quizzes, "count": all_count})
+
+
+"""
+Function that returns the list of quizz submits with filtration.
+"""
+@user_passes_test(is_teacher)
+def quizz_submits(request: HttpRequest, quizz_id: int, class_id: int | None = None):
+    count = None
+    start = None
+
+    if "count" in request.GET:
+        count = int(request.GET["count"])
+    if "start" in request.GET:
+        start = int(request.GET["start"])
+
+    if class_id is not None:
+        assignments = AssignedQuizz.objects.filter(quizz=quizz_id, clazz=class_id)
+    else:
+        assignments = AssignedQuizz.objects.filter(quizz=quizz_id)
+
+    submits = []
+
+    for assignment in assignments:
+        for submit in EnrolledQuizz.objects.filter(assigned_quizz=assignment.id, submitted=True):
+            submits.append(submit)
+
+    if start is not None:
+        submits = submits[start:]
+
+    if count is not None:
+        submits = submits[:count]
+
+    all_count = len(submits)
+
+    submits = list(map(lambda s: {
+        "id": s.pk,
+        "classId": s.assigned_quizz.clazz.id,
+        "className": str(s.assigned_quizz.clazz),
+        "student": s.student.username,
+        "score": s.score(),
+        "date": s.created_at,
+        "scoringLink": resolve_url("quizz_scoring", enrolled_id=s.pk),
+    }, submits))
+
+    return JsonResponse({"submits": submits, "count": all_count})

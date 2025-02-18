@@ -1,0 +1,317 @@
+<script setup lang="ts">
+/**
+ * This component displays a table that allows filtering and sorting of quizzes. It is also possible to add a quizz.
+ * It is only available for teachers.
+ */
+import {onMounted, reactive, ref} from 'vue';
+import type {Config, ConfigColumns, Api as DataTableObject} from 'datatables.net';
+import DataTablesCore from 'datatables.net-bs5';
+import DataTable from 'datatables.net-vue3';
+import {format} from 'date-fns';
+import Modal from "bootstrap/js/dist/modal";
+import {getDataWithCSRF, getFromAPI} from '../../utilities/api';
+
+DataTable.use(DataTablesCore);
+
+type Quizz = {
+  id: string;
+  date: Date;
+  title: string;
+  editLink: string;
+  submitsLink: string;
+};
+
+type SortValue = 'asc' | 'desc';
+type OrderColumn = 'created_at' | 'title';
+
+/**
+ * Get quizzes from API
+ * @param subject Subject abbreviation
+ * @param count Count of records
+ * @param start Offset of records
+ * @param sortCol Column to sort by
+ * @param sort Type of sorting
+ * @param search Search query
+ * @param semester Semester to filter by
+ * @returns Tuple of [total count, quizzes]
+ */
+const getQuizzes = async (
+    subject: string,
+    count: number,
+    start = 0,
+    sortCol: OrderColumn,
+    sort: SortValue = 'desc',
+    search: string = '',
+    semester: number
+): Promise<[number, Quizz[]]> => {
+  const params = new URLSearchParams();
+
+  let subjectPath = '';
+  if (subject !== 'all') {
+    subjectPath = `/${subject}`;
+  }
+
+  params.append('count', count.toString());
+  params.append('start', start.toString());
+  params.append('sort', sort);
+  params.append('search', search);
+  params.append('order_column', sortCol);
+  params.append('semester', semester.toString());
+
+  const data = await getFromAPI<{
+    quizzes: Quizz[];
+    count: number;
+  }>(`/api/quizz-list${subjectPath}?${params.toString()}`);
+
+  if (data) {
+    return [
+      data.count,
+      data.quizzes.map((quizz) => {
+        return {
+          ...quizz,
+          //parse date, and since django returns the correct format we can just pass it to the Date constructor
+          date: new Date(quizz.date)
+        } satisfies Quizz;
+      })
+    ];
+  }
+
+  return [0, []];
+};
+
+type Subject = {
+  abbr: string;
+  name: string;
+};
+
+type Semester = {
+  pk: number;
+  winter: boolean;
+  year: string;
+};
+
+const subjects = ref(Array<Subject>());
+
+const semesters = ref(Array<Semester>());
+
+const quizzAddModalState = reactive({
+  quizz_add_modal: null,
+});
+
+const selectedSubjectAbbr = ref<string>("");
+const selectedName = ref<string>("");
+
+/**
+ * Open quizz add modal
+ */
+const openQuizzAddModal = () => {
+  quizzAddModalState.quizz_add_modal.show()
+}
+
+/**
+ * Close quizz add modal
+ */
+const closeQuizzAddModal = () => {
+  quizzAddModalState.quizz_add_modal.hide()
+}
+
+const addQuizz = async () => {
+  const data = await getDataWithCSRF<{message: string}>('/api/quizz/add', 'POST', {
+    subject: selectedSubjectAbbr.value,
+    name: selectedName.value
+  });
+
+  if (data && data.message) {
+    closeQuizzAddModal();
+    table.draw();
+  }
+};
+
+/**
+ * Get subjects from server
+ */
+const getSubjects = async () => {
+  const data = await getFromAPI<{
+    subjects: Subject[];
+  }>('/api/subjects/all');
+
+  if (data) {
+    subjects.value = data.subjects;
+
+    if (data.subjects.length > 0)
+      selectedSubjectAbbr.value = data.subjects[0].abbr;
+  }
+};
+
+let semester = ref(0);
+
+const getSemesters = async () => {
+  const data = await getFromAPI<{
+    semesters: Semester[];
+  }>('/api/semesters');
+
+  if (data) {
+    semesters.value = data.semesters;
+
+    if (data.semesters.length > 0)
+      semester.value = data.semesters[0].pk;
+  }
+}
+
+await getSubjects();
+
+await getSemesters();
+
+let subject = ref('all');
+
+const columns = [
+  {
+    title: 'Id',
+    data: 'id',
+    searchable: false,
+    orderable: false,
+    visible: false
+  },
+  {
+    title: 'Title',
+    data: (row: Quizz) => row,
+    orderable: true,
+    searchable: true,
+    render: (data: Quizz) => `<a href="${data.editLink}">${data.title}</a>`
+  },
+  {
+    title: 'Subject',
+    data: 'subject',
+    orderable: false,
+    searchable: false,
+  },
+  {
+    title: 'Submits',
+    data: (row: Quizz) => row,
+    orderable: false,
+    searchable: false,
+    render: (data: Quizz) => `<a href="${data.submitsLink}">Show submits</a>`
+  },
+  {
+    title: 'Created At',
+    data: 'date',
+    orderable: true,
+    searchable: false,
+    render: (data: Date) => format(data, 'yyyy-MM-dd hh:mm')
+  },
+] satisfies ConfigColumns[];
+
+const options = {
+  stripeClasses: ['table-striped', 'table-hover'],
+  serverSide: true,
+  ajax: async (
+      data: {
+        length: number;
+        start: number;
+        order: {
+          column: number;
+          dir: SortValue;
+          name: string;
+        }[];
+        search: {
+          value: string;
+        };
+      },
+      callback: (data: { data: Quizz[]; recordsTotal: number; recordsFiltered: number }) => void
+  ) => {
+    let col = data.order.find((order) => order.column === 4);
+    let orderColumn: OrderColumn = 'created_at';
+    if (!col) {
+      col = data.order.find((order) => order.column === 1);
+      if (col) orderColumn = 'title';
+    }
+
+    const [count, items] = await getQuizzes(
+        subject.value,
+        data.length,
+        data.start,
+        orderColumn,
+        col?.dir ?? 'desc',
+        data.search.value,
+        semester.value
+    );
+
+    callback({data: items, recordsTotal: count, recordsFiltered: count}); // https://datatables.net/manual/server-side#Returned-data
+  },
+  orderMulti: false,
+  pageLength: 25
+} satisfies Config;
+
+//save ref to data table and if it changes save datatable instance to table variable
+const dataTable = ref();
+let table: DataTableObject<unknown>;
+
+onMounted(() => {
+  quizzAddModalState.quizz_add_modal = new Modal('#quizz_add_modal', {})
+  table = dataTable.value?.dt;
+});
+
+const filterChanged = () => {
+  //invalidate cells to load data again with
+  table.draw();
+};
+
+
+</script>
+
+<template>
+  <div class="d-flex justify-content-end">
+    <button class="btn btn-primary mb-2" @click="openQuizzAddModal">Add quizz</button>
+  </div>
+  <div class="d-flex gap-1 justify-content-start">
+    <label for="subject-select" class="mt-2 form-label">Subject: </label>
+    <select id="subject-select" v-model="subject" class="form-select" @change="filterChanged">
+      <option value="all" selected>All</option>
+      <option v-for="subj in subjects" :key="subj.abbr" :value="subj.abbr">
+        {{ subj.name }}
+      </option>
+    </select>
+    <label for="semester-select" class="mt-2 form-label">Semester: </label>
+    <select id="semester-select" v-model="semester" class="form-select" @change="filterChanged">
+      <option v-for="sem in semesters" :key="`${sem.year}${sem.winter?'W':'S'}`" :value="sem.pk">
+        {{ `${sem.year}${sem.winter?'W':'S'}` }}
+      </option>
+    </select>
+  </div>
+
+  <DataTable ref="dataTable" class="table table-striped" :columns="columns" :options="options">
+  </DataTable>
+  <div class="modal fade" id="quizz_add_modal" tabindex="-1" aria-labelledby="quizz_add_modal_label"
+       aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="quizz_add_modal_label">Add quizz</h5>
+          <button type="button" class="btn-close" aria-label="Close" @click="closeQuizzAddModal"></button>
+        </div>
+        <div class="modal-body row justify-content-center">
+          <div class="col-12 mb-1">
+            <label for="subject-select" class="form-label">Subject</label>
+            <select id="subject-select" class="form-control" v-model="selectedSubjectAbbr">
+              <option :value="subject.abbr" v-for="subject in subjects" :key="subject.abbr">
+                {{ subject.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-12 mb-1">
+            <label for="name-select" class="form-label">Name</label>
+            <input id="name-select" class="form-control" type="text" v-model="selectedName"/>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" @click="addQuizz">Add quizz</button>
+          <button type="button" class="btn btn-secondary" @click="closeQuizzAddModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+@import 'datatables.net-bs5';
+</style>

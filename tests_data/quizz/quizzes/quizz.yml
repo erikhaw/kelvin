@@ -1,0 +1,67 @@
+questions:
+- _id: test_question_open
+  content: 'What is output of this line of code?
+
+
+    ```c
+
+    printf("Hello world");
+
+    ```'
+  name: Output of printf
+  points: 3
+  type: open
+- _id: test_question_abcd_multiple
+  answers:
+  - _id: test_question_abcd_multiple_answer_1
+    answer_content: "```c\n        int main() {\n            printf(\"Hello World\\\
+      n\")\n            return 0;\n        }\n```"
+    is_correct: true
+    negative: 50
+    positive: 25
+  - _id: test_question_abcd_multiple_answer_2
+    answer_content: "```c\n      int main() {\n        printf('Hello World\\n');\n\
+      \        return 0;\n      }\n```"
+    is_correct: true
+    negative: 50
+    positive: 25
+  - _id: test_question_abcd_multiple_answer_3
+    answer_content: "```c\n      int main() {\n        printf(\"Hello World\\n\");\n\
+      \        return 0;\n\n```"
+    is_correct: true
+    negative: 50
+    positive: 25
+  - _id: test_question_abcd_multiple_answer_4
+    answer_content: All source codes are syntactically correct.
+    is_correct: false
+    negative: 100
+    positive: 25
+  content: Which C codes are syntactically wrong? Choose **all correct** answers.
+  name: Source codes 1
+  points: 5
+  type: abcd.multiple
+- _id: test_question_abcd
+  answers:
+  - _id: test_question_abcd_answer_1
+    answer_content: "```c\n        int main() {\n            printf(\"Hello World\\\
+      n\")\n            return 0;\n        }\n```"
+    is_correct: false
+  - _id: test_question_abcd_answer_2
+    answer_content: "```c\n      int main() {\n        printf('Hello World\\n');\n\
+      \        return 0;\n      }\n```"
+    is_correct: false
+  - _id: test_question_abcd_answer_3
+    answer_content: "```c\n      int main() {\n        printf(\"Hello World\\n\");\n\
+      \        return 0;\n\n```"
+    is_correct: false
+  - _id: test_question_abcd_answer_4
+    answer_content: "```c\n      int main() {\n        printf(\"Hello World\\n);\n\
+      \        return 0;\n\n```"
+    is_correct: false
+  - _id: test_question_abcd_answer_5
+    answer_content: All source codes are syntactically wrong.
+    is_correct: true
+  content: Which C codes are syntactically wrong? Choose **one correct** answer.
+  name: Source codes 2
+  points: 3
+  type: abcd

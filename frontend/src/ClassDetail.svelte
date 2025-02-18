@@ -29,12 +29,15 @@ async function reevaluateAssignment(assignment) {
 }
 
 function studentPoints(clazz, student) {
-  return clazz.assignments
+  return (clazz.assignments
     .map((i) => i.students[student.username])
     .filter((result) => result && result.submits != 0 && !isNaN(parseFloat(result.assigned_points)))
     .map((result) => parseFloat(result.assigned_points))
     .reduce((acc, val) => acc + val, 0)
-    .toFixed(2);
+    + clazz.quizzes.map((i) => i.students[student.username])
+    .filter((result) => result && !isNaN(parseFloat(result.score)))
+    .map((result) => parseFloat(result.score))
+    .reduce((acc, val) => acc + val, 0)).toFixed(2);
 }
 
 function totalTaskPoints(clazz, assignment_index) {
@@ -51,6 +54,19 @@ function totalTaskPoints(clazz, assignment_index) {
   }
 
   return assignmentPoints;
+}
+
+function totalQuizzPoints(clazz, quizz_index) {
+  let quizzPoints = 0;
+
+  for (let i = 0; i < clazz.students.length; i++) {
+    const student = clazz.students[i];
+    if (!isNaN(clazz.quizzes[quizz_index].students[student.username].score)) {
+      quizzPoints += Math.max(0, clazz.quizzes[quizz_index].students[student.username].score);
+    }
+  }
+
+  return quizzPoints;
 }
 
 function createTaskSummary(clazz, assignment_index) {
@@ -82,7 +98,7 @@ Total points: ${assignmentPoints.toFixed(2)}/${totalMaximumPoints}
 Average points: ${average}`;
 }
 
-let showFullTaskNames = localStorageStore('classDetail/showFullTaskNames', false);
+let showFullNames = localStorageStore('classDetail/showFullNames', false);
 let showSummary = false;
 </script>
 
@@ -103,9 +119,9 @@ let showSummary = false;
       </a>
       <button
         class="p-0 btn btn-link"
-        on:click={() => ($showFullTaskNames = !$showFullTaskNames)}
-        title="Show full task names">
-        {#if $showFullTaskNames}
+        on:click={() => ($showFullNames = !$showFullNames)}
+        title="Show full names">
+        {#if $showFullNames}
           <span><span class="iconify" data-icon="la:eye"></span></span>
         {:else}
           <span><span class="iconify" data-icon="la:eye-slash"></span></span>
@@ -165,9 +181,9 @@ let showSummary = false;
                         href={assignment.task_link}
                         class:text-muted={assignment.assigned > new Date()}
                         class:text-success={assignment.deadline > new Date()}>
-                        {$showFullTaskNames
+                        {$showFullNames
                           ? assignment.short_name
-                          : `#${index + 1}`}{#if assignment.max_points > 0}&nbsp;({assignment.max_points}b){/if}
+                          : `#T${index + 1}`}{#if assignment.max_points > 0}&nbsp;({assignment.max_points}b){/if}
                       </a>
                       <div class="more-content border shadow rounded bg-body p-1">
                         {assignment.name}
@@ -227,11 +243,52 @@ let showSummary = false;
                       </div>
                     </th>
                   {/each}
+                  {#each clazz.quizzes as quizz, index}
+                    <th class="more-hover">
+                      <a
+                        href={quizz.quizz_link}
+                        class:text-muted={quizz.assigned > new Date()}
+                        class:text-success={quizz.deadline > new Date()}>
+                        {$showFullNames ? quizz.name_lower
+                         : `#Q${index + 1}`}{#if quizz.max_points > 0}&nbsp;({quizz.max_points}b){/if}
+                      </a>
+                      <div class="more-content border shadow rounded bg-body p-1">
+                        {quizz.name}
+                        <a href="{quizz.quizz_edit_link}" title="Edit"
+                          ><span class="iconify" data-icon="clarity:edit-solid"></span></a>
+                        <dl>
+                          <dt>Assigned</dt>
+                          <dd>
+                            {quizz.assigned.toLocaleString(
+                              'cs'
+                            )}{#if quizz.assigned > new Date()}, <TimeAgo
+                                datetime={quizz.assigned} />{/if}
+                          </dd>
+
+                          {#if quizz.deadline}
+                            <dt>Deadline</dt>
+                            <dd>
+                              {quizz.deadline.toLocaleString(
+                                'cs'
+                              )}{#if quizz.deadline > new Date()}, <TimeAgo
+                                  datetime={quizz.deadline} />{/if}
+                            </dd>
+                          {/if}
+                          {#if quizz.max_points}
+                            <dt>Max points</dt>
+                            <dd>
+                              {quizz.max_points}
+                            </dd>
+                          {/if}
+                        </dl>
+                      </div>
+                    </th>
+                  {/each}
                   <th
-                    >Total ({clazz.assignments.reduce((sum, task) => sum + task.max_points, 0)} pts)</th>
+                    >Total ({clazz.assignments.concat(clazz.quizzes).reduce((sum, task) => sum + task.max_points, 0)} pts)
+                  </th>
                 </tr>
               </thead>
-
               <tbody>
                 {#each clazz.students as student}
                   <tr>
@@ -249,6 +306,11 @@ let showSummary = false;
                           assigned_points={result.assigned_points} />
                       </td>
                     {/each}
+                    {#each clazz.quizzes.map((i) => i.students[student.username]) as result, i}
+                      <td>
+                          {#if result.score != null}<a href="{result.scoring_link}" style="color: {result.color};">{result.score}</a>{/if}
+                      </td>
+                    {/each}
                     <td>{studentPoints(clazz, student)}</td>
                   </tr>
                 {/each}
@@ -258,6 +320,9 @@ let showSummary = false;
                   {#each clazz.assignments as assignment, k}
                     <td title={createTaskSummary(clazz, k)}
                       >{totalTaskPoints(clazz, k).toFixed(2)}</td>
+                  {/each}
+                  {#each clazz.quizzes as _, k}
+                    <td>{totalQuizzPoints(clazz, k).toFixed(2)}</td>
                   {/each}
                   <td></td>
                 </tr>

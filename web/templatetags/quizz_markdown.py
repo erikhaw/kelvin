@@ -4,10 +4,9 @@ from web.markdown_utils import process_markdown
 
 register = template.Library()
 
-
 @register.filter()
 @stringfilter
-def markdown(value, task_code):
+def quizz_markdown(value, quizz_src):
     if value:
-        return process_markdown(task_code, value)
+        return process_markdown(quizz_src, value, 'quizz')
     return ""

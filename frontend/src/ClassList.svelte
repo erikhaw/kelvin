@@ -42,6 +42,14 @@ async function refetch() {
       }
       return assignment;
     });
+
+    c.quizzes = c.quizzes.map((quizz) => {
+      quizz.assigned = new Date(quizz.assigned);
+      quizz.deadline = new Date(quizz.deadline);
+
+      return quizz;
+    });
+
     return c;
   });
   loading = false;
