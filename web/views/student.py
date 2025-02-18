@@ -1110,7 +1110,7 @@ def quizz_enroll(request, assignment_id):
             try:
                 template = TemplateQuizz.objects.get(hash=quizz_json_hash)
             except TemplateQuizz.DoesNotExist:
-                template = TemplateQuizz.objects.create(hash=quizz_json_hash, content=json.loads(to_json(quizz_dto)))
+                template = TemplateQuizz.objects.create(hash=quizz_json_hash, content=json.loads(quizz_json))
                 template.save()
 
             deadline = now + timedelta(minutes=assigned_quizz.duration)
