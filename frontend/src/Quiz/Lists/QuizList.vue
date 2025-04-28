@@ -32,7 +32,6 @@ type OrderColumn = 'created_at' | 'title';
  * @param sortCol Column to sort by
  * @param sort Type of sorting
  * @param search Search query
- * @param semester Semester to filter by
  * @returns Tuple of [total count, quizzes]
  */
 const getQuizzes = async (
@@ -41,8 +40,7 @@ const getQuizzes = async (
     start = 0,
     sortCol: OrderColumn,
     sort: SortValue = 'desc',
-    search: string = '',
-    semester: number
+    search: string = ''
 ): Promise<[number, Quiz[]]> => {
   const params = new URLSearchParams();
 
@@ -56,7 +54,6 @@ const getQuizzes = async (
   params.append('sort', sort);
   params.append('search', search);
   params.append('order_column', sortCol);
-  params.append('semester', semester.toString());
 
   const data = await getFromAPI<{
     quizzes: Quiz[];
@@ -84,15 +81,7 @@ type Subject = {
   name: string;
 };
 
-type Semester = {
-  pk: number;
-  winter: boolean;
-  year: string;
-};
-
 const subjects = ref(Array<Subject>());
-
-const semesters = ref(Array<Semester>());
 
 const quizAddModalState = reactive({
   quiz_add_modal: null,
@@ -143,24 +132,7 @@ const getSubjects = async () => {
   }
 };
 
-let semester = ref(0);
-
-const getSemesters = async () => {
-  const data = await getFromAPI<{
-    semesters: Semester[];
-  }>('/api/semesters');
-
-  if (data) {
-    semesters.value = data.semesters;
-
-    if (data.semesters.length > 0)
-      semester.value = data.semesters[0].pk;
-  }
-}
-
 await getSubjects();
-
-await getSemesters();
 
 let subject = ref('all');
 
@@ -232,8 +204,7 @@ const options = {
         data.start,
         orderColumn,
         col?.dir ?? 'desc',
-        data.search.value,
-        semester.value
+        data.search.value
     );
 
     callback({data: items, recordsTotal: count, recordsFiltered: count}); // https://datatables.net/manual/server-side#Returned-data
@@ -269,12 +240,6 @@ const filterChanged = () => {
       <option value="all" selected>All</option>
       <option v-for="subj in subjects" :key="subj.abbr" :value="subj.abbr">
         {{ subj.name }}
-      </option>
-    </select>
-    <label for="semester-select" class="mt-2 form-label">Semester: </label>
-    <select id="semester-select" v-model="semester" class="form-select" @change="filterChanged">
-      <option v-for="sem in semesters" :key="`${sem.year}${sem.winter?'W':'S'}`" :value="sem.pk">
-        {{ `${sem.year}${sem.winter?'W':'S'}` }}
       </option>
     </select>
   </div>

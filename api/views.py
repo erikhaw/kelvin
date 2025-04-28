@@ -1141,7 +1141,7 @@ def quiz_add(request: HttpRequest):
 
             postfix += 1
 
-        quiz = Quiz.objects.create(title=post["name"], subject=subject, src=postfix_src, semester=current_semester())
+        quiz = Quiz.objects.create(title=post["name"], subject=subject, src=postfix_src)
 
         with open(quiz.get_identifier_path(), 'w', encoding='utf-8') as file:
             file.write(str(quiz.id))
@@ -1208,18 +1208,6 @@ def quizzes_list_all(request: HttpRequest, subject_abbr: str | None = None):
     if "sort" in request.GET:
         if request.GET["sort"] == "asc":
             sort = "asc"
-
-    if "semester" in request.GET:
-        semester = request.GET["semester"]
-
-        try:
-            semester = Semester.objects.get(pk=int(semester))
-        except Semester.DoesNotExist:
-            return HttpResponseBadRequest()
-    else:
-        semester = current_semester()
-
-    filters["semester"] = semester.pk
 
     if sort != "desc":
         order = (order_by, "id")

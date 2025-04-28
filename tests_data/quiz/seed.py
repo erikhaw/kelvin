@@ -97,8 +97,7 @@ def tests_seed_quiz():
         ]
     }
 
-    quiz = Quiz.objects.create(title='Test Quiz', subject=upr, root='tests_data', src='quiz/quizzes/',
-                                 semester=semester)
+    quiz = Quiz.objects.create(title='Test Quiz', subject=upr, root='tests_data', src='quiz/quizzes/')
 
     quiz.write(to_yaml(quiz_data))
 

@@ -18,7 +18,6 @@ class Quiz(models.Model):
     src = models.CharField(max_length=255, verbose_name="Directory", unique=True)
     root = models.CharField(max_length=255, default="quizzes")
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
