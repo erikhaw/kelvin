@@ -87,6 +87,9 @@ class Quiz(models.Model):
 
         return True
 
+    class Meta:
+        verbose_name_plural = "Quizzes"
+
 
 """
 Model that represents an assigned quiz.
@@ -109,6 +112,9 @@ class AssignedQuiz(models.Model):
     def max_points(self):
         return sum(map(lambda q: q.points, self.quiz.get_dto().questions))
 
+    class Meta:
+        verbose_name_plural = "Assigned quizzes"
+
 
 """
 Model that represents a template of enrolled quiz.
@@ -120,6 +126,9 @@ class TemplateQuiz(models.Model):
 
     def __str__(self):
         return f"Quiz template {self.id}"
+
+    class Meta:
+        verbose_name_plural = "Quiz templates"
 
 
 """
@@ -193,6 +202,9 @@ class EnrolledQuiz(models.Model):
         self.scoring = scoring
 
         self.save()
+
+    class Meta:
+        verbose_name_plural = "Enrolled quizzes"
 
 """
 Function that returns a list of classes that are/can be assigned to the quiz.
