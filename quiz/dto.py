@@ -19,7 +19,7 @@ class AnswerDto:
 
 
 """
-Class that represents a DTO for a question in a quizz.
+Class that represents a DTO for a question in a quiz.
 """
 @serde
 class QuestionDto:
@@ -36,20 +36,20 @@ class QuestionDto:
 
 
 """
-Class that represents a DTO for a quizz.
+Class that represents a DTO for a quiz.
 """
 @serde
-class QuizzDto:
+class QuizDto:
     questions: List[QuestionDto]
     shuffle: bool | None = field(default=None, skip_if=lambda x: x is None)
 
 
 """
-Class that represents a DTO to update a quizz.
+Class that represents a DTO to update a quiz.
 """
 @serde
-class UpdateQuizzDto:
-    quizz_directory: str
+class UpdateQuizDto:
+    quiz_directory: str
     shuffle: bool
     questions: List[QuestionDto] | None = field(default=None, skip_if=lambda x: x is None)
 

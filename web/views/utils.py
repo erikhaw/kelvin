@@ -13,23 +13,23 @@ def file_response(file, filename: str, mimetype: str) -> HttpResponse:
 """
 Helper function that renders a markdown content of question and its answers to HTML and returns them.
 """
-def quizz_to_html(quizz_directory: str, quizz: dict):
+def quiz_to_html(quiz_directory: str, quiz: dict):
     result = []
 
-    for question in quizz['questions']:
+    for question in quiz['questions']:
         question_render = {
             'id': question.get('_id'),
             'type': question['type'],
             'points': question['points'],
             'name': question['name'],
-            'htmlContent': process_markdown(quizz_directory, question['content'], 'quizz').content
+            'htmlContent': process_markdown(quiz_directory, question['content'], 'quiz').content
         }
         if question.get('answers'):
             answers = []
             for answer in question['answers']:
                 answers.append({
                     'id': answer.get('_id'),
-                    'htmlContent': process_markdown(quizz_directory, answer['answer_content'], 'quizz').content,
+                    'htmlContent': process_markdown(quiz_directory, answer['answer_content'], 'quiz').content,
                 })
             question_render['answers'] = answers
         result.append(question_render)

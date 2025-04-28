@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * This component displays a table that shows quizz submits.
+ * This component displays a table that shows quiz submits.
  * It is only available for teachers.
  */
 import {onMounted, ref} from 'vue';
@@ -12,8 +12,8 @@ import {getFromAPI} from '../../utilities/api';
 
 DataTable.use(DataTablesCore);
 
-const {quizz_id} = defineProps<{
-  quizz_id: number;
+const {quiz_id} = defineProps<{
+  quiz_id: number;
 }>();
 
 type Submit = {
@@ -63,7 +63,7 @@ const getSubmits = async (
   const data = await getFromAPI<{
     submits: Submit[];
     count: number;
-  }>(`/api/quizz/${quizz_id}/submits${classPath}?${params.toString()}`);
+  }>(`/api/quiz/${quiz_id}/submits${classPath}?${params.toString()}`);
 
   if (data) {
     return [
@@ -89,12 +89,12 @@ type Class = {
 const classes = ref(Array<Class>());
 
 /**
- * Get scoped classes from server by quizz id
+ * Get scoped classes from server by quiz id
  */
 const getClasses = async () => {
   const data = await getFromAPI<{
     classes: Class[];
-  }>(`/api/quizz/${quizz_id}/classes`);
+  }>(`/api/quiz/${quiz_id}/classes`);
 
   if (data) {
     classes.value = data.classes;

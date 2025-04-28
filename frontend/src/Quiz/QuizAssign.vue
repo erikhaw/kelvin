@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * This component allows assigning a quizz to classes.
+ * This component allows assigning a quiz to classes.
  * It is only available to teachers.
  */
 import {ref, watchEffect} from "vue";
@@ -10,13 +10,13 @@ import '@vuepic/vue-datepicker/dist/main.css';
 import 'vue3-toastify/dist/index.css';
 import {getDataWithCSRF} from '../utilities/api';
 
-const {assignments, quizz_id, teacher} = defineProps<{
+const {assignments, quiz_id, teacher} = defineProps<{
   assignments: string;
-  quizz_id: number;
+  quiz_id: number;
   teacher: string;
 }>();
 
-const quizzDeletable = defineModel<boolean>();
+const quizDeletable = defineModel<boolean>();
 
 type AssignmentClass = {
   id: number;
@@ -36,7 +36,7 @@ type AssignmentClass = {
 type AssignmentClassProperty = 'assigned' | 'deadline' | 'duration';
 
 /**
- * Check if the class is missing properties to assign a quizz.
+ * Check if the class is missing properties to assign a quiz.
  * @param clazz AssignmentClass to be checked
  */
 const isMissingPropertyToAssign = (clazz: AssignmentClass) => {
@@ -62,15 +62,15 @@ const teacherNames = ref<string[]>([...new Set(assignmentsData.value.map(c => c.
 const saveAssignments = async () => {
   const data = await getDataWithCSRF<{
     message: string,
-    quizz_deletable: boolean,
+    quiz_deletable: boolean,
     assignments: AssignmentClass[]
-  }>(`/api/quizz/${quizz_id}/assignments`, 'POST',
+  }>(`/api/quiz/${quiz_id}/assignments`, 'POST',
       {"assignments": assignmentsData.value}
   );
 
   if (data) {
     toast.success(data.message);
-    quizzDeletable.value = data.quizz_deletable;
+    quizDeletable.value = data.quiz_deletable;
     assignmentsData.value = data.assignments;
   } else {
     toast.error('Failed to save assignments');
@@ -160,7 +160,7 @@ watchEffect(() => {
     <div class="card">
       <div class="card-header">
         <h5 class="card-title mb-0" style="cursor: pointer;" @click="isCollapsed = !isCollapsed">
-          Assign quizz <span class="iconify" data-icon="la:eye"></span>
+          Assign quiz <span class="iconify" data-icon="la:eye"></span>
         </h5>
       </div>
       <div :class="{'collapse': isCollapsed, 'show': !isCollapsed}">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * This component displays a table that allows filtering and sorting of quizzes. It is also possible to add a quizz.
+ * This component displays a table that allows filtering and sorting of quizzes. It is also possible to add a quiz.
  * It is only available for teachers.
  */
 import {onMounted, reactive, ref} from 'vue';
@@ -13,7 +13,7 @@ import {getDataWithCSRF, getFromAPI} from '../../utilities/api';
 
 DataTable.use(DataTablesCore);
 
-type Quizz = {
+type Quiz = {
   id: string;
   date: Date;
   title: string;
@@ -43,7 +43,7 @@ const getQuizzes = async (
     sort: SortValue = 'desc',
     search: string = '',
     semester: number
-): Promise<[number, Quizz[]]> => {
+): Promise<[number, Quiz[]]> => {
   const params = new URLSearchParams();
 
   let subjectPath = '';
@@ -59,19 +59,19 @@ const getQuizzes = async (
   params.append('semester', semester.toString());
 
   const data = await getFromAPI<{
-    quizzes: Quizz[];
+    quizzes: Quiz[];
     count: number;
-  }>(`/api/quizz-list${subjectPath}?${params.toString()}`);
+  }>(`/api/quiz-list${subjectPath}?${params.toString()}`);
 
   if (data) {
     return [
       data.count,
-      data.quizzes.map((quizz) => {
+      data.quizzes.map((quiz) => {
         return {
-          ...quizz,
+          ...quiz,
           //parse date, and since django returns the correct format we can just pass it to the Date constructor
-          date: new Date(quizz.date)
-        } satisfies Quizz;
+          date: new Date(quiz.date)
+        } satisfies Quiz;
       })
     ];
   }
@@ -94,35 +94,35 @@ const subjects = ref(Array<Subject>());
 
 const semesters = ref(Array<Semester>());
 
-const quizzAddModalState = reactive({
-  quizz_add_modal: null,
+const quizAddModalState = reactive({
+  quiz_add_modal: null,
 });
 
 const selectedSubjectAbbr = ref<string>("");
 const selectedName = ref<string>("");
 
 /**
- * Open quizz add modal
+ * Open quiz add modal
  */
-const openQuizzAddModal = () => {
-  quizzAddModalState.quizz_add_modal.show()
+const openQuizAddModal = () => {
+  quizAddModalState.quiz_add_modal.show()
 }
 
 /**
- * Close quizz add modal
+ * Close quiz add modal
  */
-const closeQuizzAddModal = () => {
-  quizzAddModalState.quizz_add_modal.hide()
+const closeQuizAddModal = () => {
+  quizAddModalState.quiz_add_modal.hide()
 }
 
-const addQuizz = async () => {
-  const data = await getDataWithCSRF<{message: string}>('/api/quizz/add', 'POST', {
+const addQuiz = async () => {
+  const data = await getDataWithCSRF<{message: string}>('/api/quiz/add', 'POST', {
     subject: selectedSubjectAbbr.value,
     name: selectedName.value
   });
 
   if (data && data.message) {
-    closeQuizzAddModal();
+    closeQuizAddModal();
     table.draw();
   }
 };
@@ -174,10 +174,10 @@ const columns = [
   },
   {
     title: 'Title',
-    data: (row: Quizz) => row,
+    data: (row: Quiz) => row,
     orderable: true,
     searchable: true,
-    render: (data: Quizz) => `<a href="${data.editLink}">${data.title}</a>`
+    render: (data: Quiz) => `<a href="${data.editLink}">${data.title}</a>`
   },
   {
     title: 'Subject',
@@ -187,10 +187,10 @@ const columns = [
   },
   {
     title: 'Submits',
-    data: (row: Quizz) => row,
+    data: (row: Quiz) => row,
     orderable: false,
     searchable: false,
-    render: (data: Quizz) => `<a href="${data.submitsLink}">Show submits</a>`
+    render: (data: Quiz) => `<a href="${data.submitsLink}">Show submits</a>`
   },
   {
     title: 'Created At',
@@ -217,7 +217,7 @@ const options = {
           value: string;
         };
       },
-      callback: (data: { data: Quizz[]; recordsTotal: number; recordsFiltered: number }) => void
+      callback: (data: { data: Quiz[]; recordsTotal: number; recordsFiltered: number }) => void
   ) => {
     let col = data.order.find((order) => order.column === 4);
     let orderColumn: OrderColumn = 'created_at';
@@ -247,7 +247,7 @@ const dataTable = ref();
 let table: DataTableObject<unknown>;
 
 onMounted(() => {
-  quizzAddModalState.quizz_add_modal = new Modal('#quizz_add_modal', {})
+  quizAddModalState.quiz_add_modal = new Modal('#quiz_add_modal', {})
   table = dataTable.value?.dt;
 });
 
@@ -261,7 +261,7 @@ const filterChanged = () => {
 
 <template>
   <div class="d-flex justify-content-end">
-    <button class="btn btn-primary mb-2" @click="openQuizzAddModal">Add quizz</button>
+    <button class="btn btn-primary mb-2" @click="openQuizAddModal">Add quiz</button>
   </div>
   <div class="d-flex gap-1 justify-content-start">
     <label for="subject-select" class="mt-2 form-label">Subject: </label>
@@ -281,13 +281,13 @@ const filterChanged = () => {
 
   <DataTable ref="dataTable" class="table table-striped" :columns="columns" :options="options">
   </DataTable>
-  <div class="modal fade" id="quizz_add_modal" tabindex="-1" aria-labelledby="quizz_add_modal_label"
+  <div class="modal fade" id="quiz_add_modal" tabindex="-1" aria-labelledby="quiz_add_modal_label"
        aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="quizz_add_modal_label">Add quizz</h5>
-          <button type="button" class="btn-close" aria-label="Close" @click="closeQuizzAddModal"></button>
+          <h5 class="modal-title" id="quiz_add_modal_label">Add quiz</h5>
+          <button type="button" class="btn-close" aria-label="Close" @click="closeQuizAddModal"></button>
         </div>
         <div class="modal-body row justify-content-center">
           <div class="col-12 mb-1">
@@ -304,8 +304,8 @@ const filterChanged = () => {
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" @click="addQuizz">Add quizz</button>
-          <button type="button" class="btn btn-secondary" @click="closeQuizzAddModal">Close</button>
+          <button type="button" class="btn btn-primary" @click="addQuiz">Add quiz</button>
+          <button type="button" class="btn btn-secondary" @click="closeQuizAddModal">Close</button>
         </div>
       </div>
     </div>

@@ -1,17 +1,17 @@
 <script setup lang="ts">
 /**
- * This component displays a quizz that can "work" in 4 modes, based on passed parameters.
+ * This component displays a quiz that can "work" in 4 modes, based on passed parameters.
  * It is available for teachers and students.
  *
- * For teacher, it can act like a component to view detail of quizz, or to score quizz.
- * For student, it can act like a component to fill a quizz, or to view quizz results.
+ * For teacher, it can act like a component to view detail of quiz, or to score quiz.
+ * For student, it can act like a component to fill a quiz, or to view quiz results.
  */
 import {ref, onMounted, onUnmounted} from "vue";
 import VueCountdown from '@chenfengyuan/vue-countdown';
 import {getDataWithCSRF} from "../utilities/api";
 
 const {
-  quizz_html,
+  quiz_html,
   is_teacher,
   student,
   enrolled_id,
@@ -20,13 +20,13 @@ const {
   scoring,
   scored_by
 } = defineProps<{
-  quizz_html: string;
+  quiz_html: string;
   user: Number;
   student: string;
   remaining: string;
   answers: string;
   scoring: string;
-  quizz_id: Number;
+  quiz_id: Number;
   is_teacher: string;
   enrolled_id: Number;
   scored_by: string;
@@ -50,7 +50,7 @@ const scoringData = JSON.parse(scoring) as ScoringData;
 const isTeacher = is_teacher === 'true';
 const isScoring = Object.keys(scoringData).length !== 0;
 const mode = isTeacher ? isScoring ? Modes.Scoring : Modes.Display : isScoring ? Modes.ViewScoring : Modes.Filling;
-const quizz = ref<QuestionRender[]>(JSON.parse(quizz_html).map(q => {
+const quiz = ref<QuestionRender[]>(JSON.parse(quiz_html).map(q => {
   q['unansweredAsterisk'] = mode === Modes.Filling;
   return q;
 }) satisfies QuestionRender[]);
@@ -96,12 +96,12 @@ type ScoringData = {
 };
 
 /**
- * Collects answers from the quizz and returns them in a format that can be sent to the server.
+ * Collects answers from the quiz and returns them in a format that can be sent to the server.
  */
 const collectAnswers = async () => {
   const submit = {};
 
-  for (const question of quizz.value) {
+  for (const question of quiz.value) {
     submit[question.id] = [];
     if (question.type === 'open') {
       submit[question.id].push({answer: answersRef.value[question.id].value});
@@ -136,7 +136,7 @@ const sendAnswers = async (answers_type: ResultsType) => {
 
   const answers = await collectAnswers();
 
-  const data = await getDataWithCSRF<{ redirect?: string }>(`/api/quizz/${enrolled_id}/result/${answers_type}`, 'POST',
+  const data = await getDataWithCSRF<{ redirect?: string }>(`/api/quiz/${enrolled_id}/result/${answers_type}`, 'POST',
       answers,
   );
 
@@ -161,13 +161,13 @@ const sendScoring = async () => {
 
   const scoring = await collectScoring();
 
-  await getDataWithCSRF(`/api/quizz/${enrolled_id}/scoring`, 'POST', scoring);
+  await getDataWithCSRF(`/api/quiz/${enrolled_id}/scoring`, 'POST', scoring);
 
   scoringUnsaved.value = false;
 }
 
 /**
- * Collects teacher scoring of the quizz.
+ * Collects teacher scoring of the quiz.
  */
 const collectScoring = async () => {
   const scoring = {}
@@ -183,11 +183,11 @@ const collectScoring = async () => {
 }
 
 /**
- * Opens dialog to submit the quizz.
+ * Opens dialog to submit the quiz.
  */
-const submitQuizz = async () => {
+const submitQuiz = async () => {
   if (mode === Modes.Filling) {
-    const submitMessage = 'Are you sure you want to submit quizz?' + (quizz.value.some(q => q.unansweredAsterisk) ? ' There are unanswered questions.' : '');
+    const submitMessage = 'Are you sure you want to submit quiz?' + (quiz.value.some(q => q.unansweredAsterisk) ? ' There are unanswered questions.' : '');
 
     if (confirm(submitMessage)) {
       await sendAnswers(ResultsType.Submit);
@@ -213,7 +213,7 @@ onMounted(() => {
         isAnswered = answer.answer as string !== "";
       }
     }
-    quizz.value.find(q => q.id === question_id).unansweredAsterisk = mode === Modes.Filling && !isAnswered;
+    quiz.value.find(q => q.id === question_id).unansweredAsterisk = mode === Modes.Filling && !isAnswered;
   }
 });
 
@@ -225,7 +225,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div id="quizz">
+  <div id="quiz">
     <div class="row">
       <div class="col-12 col-md-3 bg-light py-3" id="sidebar-wrapper">
         <vue-countdown v-if="mode === Modes.Filling" :time="remainingTime" v-slot="{ hours, minutes, seconds }"
@@ -257,7 +257,7 @@ onUnmounted(() => {
         </h5>
         <ul class="list-unstyled">
           <li
-              v-for="(question, index) in quizz"
+              v-for="(question, index) in quiz"
               :key="question.id"
               :class="['py-2 text-center', { 'active': currentQuestionIndex === index }]"
               @click="selectQuestion(index)"
@@ -271,7 +271,7 @@ onUnmounted(() => {
           </li>
         </ul>
         <div class="text-center mt-2">
-          <button v-if="!isScoring" @click="submitQuizz"
+          <button v-if="!isScoring" @click="submitQuiz"
                   class="btn btn-danger w-auto px-4"
                   :disabled="isTeacher"
           >Submit
@@ -282,7 +282,7 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="col-12 col-md-9 py-3" id="page-content-wrapper">
-        <div v-for="(question, index) in quizz" :key="question.id">
+        <div v-for="(question, index) in quiz" :key="question.id">
           <div v-show="currentQuestionIndex === index" class="question">
             <div class="card">
               <div class="card-header d-flex justify-content-between align-items-center">
@@ -386,40 +386,40 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-#quizz:deep(#sidebar-wrapper) {
+#quiz:deep(#sidebar-wrapper) {
   height: 100%;
 }
 
-#quizz:deep(#sidebar-wrapper ul) {
+#quiz:deep(#sidebar-wrapper ul) {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-#quizz:deep(#sidebar-wrapper li) {
+#quiz:deep(#sidebar-wrapper li) {
   text-align: center;
   padding: 8px 0;
   cursor: pointer;
 }
 
-#quizz:deep(#sidebar-wrapper li:hover) {
+#quiz:deep(#sidebar-wrapper li:hover) {
   background-color: #e9ecef;
 }
 
-#quizz:deep(.active) {
+#quiz:deep(.active) {
   font-weight: bold;
   color: #007bff;
   background-color: #e9ecef;
   border-radius: 5px;
 }
 
-#quizz:deep(.card img) {
+#quiz:deep(.card img) {
   height: auto;
   display: block;
   margin: 0 auto;
 }
 
-#quizz:deep(.teacher-scoring) {
+#quiz:deep(.teacher-scoring) {
   background-color: lightyellow;
 }
 </style>

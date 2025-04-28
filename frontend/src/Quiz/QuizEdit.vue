@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * This component displays an editor that allows editing a quizz.
+ * This component displays an editor that allows editing a quiz.
  * It is only available for teachers.
  */
 import {ref, onMounted, onUnmounted, reactive, useTemplateRef, watch} from 'vue';
@@ -11,7 +11,7 @@ import hljs from 'highlight.js'
 import 'vue3-toastify/dist/index.css';
 import Modal from 'bootstrap/js/dist/modal';
 import {getDataWithCSRF, getFromAPI} from '../utilities/api';
-import QuizzAssign from "./QuizzAssign.vue";
+import QuizAssign from "./QuizAssign.vue";
 import Editor from "../components/Editor.vue";
 import {type EditorExtension} from '../utilities/EditorUtils';
 
@@ -37,16 +37,16 @@ type DraggableQuestion = {
   hiddenId: number;
 }
 
-type QuizzUpdate = {
+type QuizUpdate = {
   shuffle: boolean;
   questions: Question[];
-  quizz_directory: string;
+  quiz_directory: string;
 }
 
-const {id, quizz_directory, assignments, teacher, deletable} = defineProps<{
+const {id, quiz_directory, assignments, teacher, deletable} = defineProps<{
   id: number;
   assignments: string;
-  quizz_directory: string;
+  quiz_directory: string;
   teacher: string;
   deletable: string;
 }>();
@@ -66,7 +66,7 @@ const selectedHiddenIdRef = ref<number>(0);
 const previewHtmlRef = ref<string>('');
 const currentQuestionYamlRef = ref<string>('');
 const previewBlockContentRef = useTemplateRef('previewBlockContent');
-const quizzDirectoryRef = useTemplateRef('quizzDirectory');
+const quizDirectoryRef = useTemplateRef('quizDirectory');
 const previewButtonRef = useTemplateRef('previewButton');
 const shuffleRef = useTemplateRef('shuffle');
 const isDeletableRef = ref<boolean>(deletable !== 'False');
@@ -139,16 +139,16 @@ const extension = ((_, content, editor, type) => {
 }) satisfies EditorExtension;
 
 /**
- * Get quizz from the server
- * @param id Quizz ID
+ * Get quiz from the server
+ * @param id Quiz ID
  */
-const getQuizz = async (id: number) => {
-  const data = await getFromAPI<{yaml: string}>('/api/quizz/' + id);
+const getQuiz = async (id: number) => {
+  const data = await getFromAPI<{yaml: string}>('/api/quiz/' + id);
 
   if (data && data.yaml) {
-    const quizz = yamlParse(data.yaml);
-    if (quizz.questions) {
-      questionsRef.value = quizz.questions.map((question: any) => {
+    const quiz = yamlParse(data.yaml);
+    if (quiz.questions) {
+      questionsRef.value = quiz.questions.map((question: any) => {
         return {
           question: question,
           hiddenId: hiddenIdRef.value++
@@ -158,7 +158,7 @@ const getQuizz = async (id: number) => {
       await updateCurrentQuestionYaml();
     }
 
-    if (quizz.shuffle) {
+    if (quiz.shuffle) {
       shuffleRef.value.checked = true;
     }
   }
@@ -182,19 +182,19 @@ const getIndexOfQuestionByHiddenId = async (hiddenId: number): Promise<number> =
 };
 
 /**
- * Send quizz to the server in order to save it
- * @param quizzUpdate Quizz object
+ * Send quiz to the server in order to save it
+ * @param quizUpdate Quiz object
  */
-const saveQuizzAPI = async (quizzUpdate: QuizzUpdate) => {
-  const data = await getDataWithCSRF<{yaml: string}>('/api/quizz/' + id, 'POST', JSON.stringify(quizzUpdate));
+const saveQuizAPI = async (quizUpdate: QuizUpdate) => {
+  const data = await getDataWithCSRF<{yaml: string}>('/api/quiz/' + id, 'POST', JSON.stringify(quizUpdate));
 
   if (data && data.yaml) {
     hiddenIdRef.value = 0;
 
-    const quizz = yamlParse(data.yaml);
+    const quiz = yamlParse(data.yaml);
 
-    if (quizz.questions) {
-      questionsRef.value = quizz.questions.map((question: any) => {
+    if (quiz.questions) {
+      questionsRef.value = quiz.questions.map((question: any) => {
         return {
           question: question,
           hiddenId: hiddenIdRef.value++
@@ -207,23 +207,23 @@ const saveQuizzAPI = async (quizzUpdate: QuizzUpdate) => {
 };
 
 /**
- * Checks if quizz is valid and then saves it
+ * Checks if quiz is valid and then saves it
  */
-const saveQuizz = async () => {
+const saveQuiz = async () => {
   const questions = questionsRef.value.map((question) => question.question);
 
   if (questions.every((question) => validateQuestion(question).isValid)) {
-    const quizzUpdate = {
+    const quizUpdate = {
       questions: questions,
-      quizz_directory: quizzDirectoryRef.value.value,
+      quiz_directory: quizDirectoryRef.value.value,
       shuffle: shuffleRef.value.checked
     };
 
-    await saveQuizzAPI(quizzUpdate);
+    await saveQuizAPI(quizUpdate);
 
     changesMade.value = false;
 
-    toast.success('Quizz saved.');
+    toast.success('Quiz saved.');
   } else {
     toast.error('Some questions are invalid.');
   }
@@ -267,7 +267,7 @@ const previewQuestion = async () => {
 
   const {html} = await getDataWithCSRF<{
     html: string
-  }>('/api/quizz/' + id + '/question/preview', 'POST',
+  }>('/api/quiz/' + id + '/question/preview', 'POST',
       question.content);
 
   let answerHtml = '';
@@ -286,7 +286,7 @@ const previewQuestion = async () => {
     for (const answer of question.answers) {
       const res = await getDataWithCSRF<{
         html: string
-      }>('/api/quizz/' + id + '/question/preview', 'POST',
+      }>('/api/quiz/' + id + '/question/preview', 'POST',
           answer.answer_content);
       if (res.html != null) {
         answerHtml += `<div class="row border rounded mt-1 p-2">
@@ -321,7 +321,7 @@ const previewQuestion = async () => {
 };
 
 /**
- * Add a question to the quizz by its type
+ * Add a question to the quiz by its type
  * @param type Type of the question
  */
 const addQuestion = async (type: QuestionType) => {
@@ -420,7 +420,7 @@ const addQuestion = async (type: QuestionType) => {
 };
 
 /**
- * Remove a question from the quizz by its hidden id
+ * Remove a question from the quiz by its hidden id
  * @param hiddenId Hidden id of the question
  */
 const removeQuestion = async (hiddenId: number) => {
@@ -525,26 +525,26 @@ const updateQuestionFromYaml = async (): Promise<boolean> => {
 };
 
 /**
- * Duplicate a quizz by its ID
- * @param id Quizz ID
+ * Duplicate a quiz by its ID
+ * @param id Quiz ID
  */
-const duplicateQuizz = async (id: number) => {
-  const data = await getDataWithCSRF<{id: number}>(`/api/quizz/${id}/duplicate`, 'POST', {
-    quizz_id: id
+const duplicateQuiz = async (id: number) => {
+  const data = await getDataWithCSRF<{id: number}>(`/api/quiz/${id}/duplicate`, 'POST', {
+    quiz_id: id
   });
 
   if (data && data.id) {
-    window.location.href = `/teacher/quizz/${data.id}/edit`;
+    window.location.href = `/teacher/quiz/${data.id}/edit`;
   }
 };
 
 /**
- * Delete a quizz by its ID
+ * Delete a quiz by its ID
  * @param id
  */
-const deleteQuizz = async (id: number) => {
-  if (confirm('Are you sure you want to delete this quizz?')) {
-    const data = await getDataWithCSRF<{redirect: string}>(`/api/quizz/${id}`, 'DELETE');
+const deleteQuiz = async (id: number) => {
+  if (confirm('Are you sure you want to delete this quiz?')) {
+    const data = await getDataWithCSRF<{redirect: string}>(`/api/quiz/${id}`, 'DELETE');
 
     if (data && data.redirect) {
       window.removeEventListener('beforeunload', beforeWindowUnload);
@@ -578,8 +578,8 @@ const beforeWindowUnload = (e: BeforeUnloadEvent) => {
 };
 
 onMounted(async () => {
-  await getQuizz(id);
-  quizzDirectoryRef.value.value = quizz_directory;
+  await getQuiz(id);
+  quizDirectoryRef.value.value = quiz_directory;
   questionAddModalState.question_add_modal = new Modal('#question_add_modal', {})
   window.addEventListener('beforeunload', beforeWindowUnload);
   changesMade.value = false;
@@ -597,25 +597,25 @@ onUnmounted(() => {
 <template>
   <div class="container">
     <div class="col-12 mb-2">
-      <QuizzAssign :quizz_id="id" :assignments="assignments" :teacher="teacher" v-model="isDeletableRef"></QuizzAssign>
+      <QuizAssign :quiz_id="id" :assignments="assignments" :teacher="teacher" v-model="isDeletableRef"></QuizAssign>
     </div>
     <div class="col-12">
       <button @click="openQuestionAddModal" class="btn btn-primary">Add question</button>
-      <button :disabled="!changesMade || !questionsRef.length" @click="saveQuizz" class="btn btn-success ms-2">Save quizz</button>
+      <button :disabled="!changesMade || !questionsRef.length" @click="saveQuiz" class="btn btn-success ms-2">Save quiz</button>
     </div>
     <div class="input-group mt-2">
-      <input id="quizz_directory" ref="quizzDirectory" type="text" class="form-control"
+      <input id="quiz_directory" ref="quizDirectory" type="text" class="form-control"
              @change="() => { changesMade = true; }">
-      <a class="btn btn-outline-info" title="Show submits" :href="`/teacher/quizz/${id}/submits`">
+      <a class="btn btn-outline-info" title="Show submits" :href="`/teacher/quiz/${id}/submits`">
               <span class="iconify" data-icon="ant-design:form-outlined"></span>
       </a>
-      <button class="btn btn-outline-info" title="Duplicate this quizz" @click="duplicateQuizz(id)">
+      <button class="btn btn-outline-info" title="Duplicate this quiz" @click="duplicateQuiz(id)">
               <span class="iconify" data-icon="ant-design:copy-outlined"></span>
       </button>
-      <a class="btn btn-outline-info" v-if="questionsRef.length" :href="`/teacher/quizz/${id}`" title="Display quizz">
+      <a class="btn btn-outline-info" v-if="questionsRef.length" :href="`/teacher/quiz/${id}`" title="Display quiz">
                 <span class="iconify" data-icon="bx:bx-link-external"></span>
       </a>
-      <button class="btn btn-outline-danger" title="Delete quizz" @click="deleteQuizz(id)" :disabled="!isDeletableRef">
+      <button class="btn btn-outline-danger" title="Delete quiz" @click="deleteQuiz(id)" :disabled="!isDeletableRef">
         <span class="iconify" data-icon="akar-icons:trash-can"></span>
       </button>
     </div>
@@ -653,7 +653,7 @@ onUnmounted(() => {
         </draggable>
       </div>
       <div class="col-lg-9 col-12" v-if="questionsRef.length">
-        <ul class="nav nav-tabs" id="quizzEditHeader" role="tablist">
+        <ul class="nav nav-tabs" id="quizEditHeader" role="tablist">
           <li class="nav-item" role="presentation">
             <button class="nav-link active" id="content-tab" data-bs-toggle="tab"
                     data-bs-target="#content-block"
@@ -668,11 +668,11 @@ onUnmounted(() => {
             </button>
           </li>
         </ul>
-        <div class="tab-content" id="quizzEditContent">
+        <div class="tab-content" id="quizEditContent">
           <div class="tab-pane fade show active p-3" id="content-block" role="tabpanel" aria-labelledby="content-tab">
             <div class="col-12">
               <Editor
-                  filename="quizz.yaml"
+                  filename="quiz.yaml"
                   v-model:value="currentQuestionYamlRef"
                   @input="updateQuestionFromYaml"
                   :extensions="[extension]"

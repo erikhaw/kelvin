@@ -29,9 +29,9 @@ from common.utils import is_teacher
 from evaluator.results import EvaluationResult
 from evaluator.testsets import TestSet
 from kelvin.settings import BASE_DIR, MAX_INLINE_CONTENT_BYTES
-from quizz.models import EnrolledQuizz, Quizz, quizz_assigned_classes
+from quiz.models import EnrolledQuiz, Quiz, quiz_assigned_classes
 from . import statistics
-from .utils import file_response, quizz_to_html
+from .utils import file_response, quiz_to_html
 
 
 @user_passes_test(is_teacher)
@@ -329,73 +329,73 @@ def reevaluate(request, submit_id):
 
 
 """
-Function that renders tool allowing to score student's quizz manually.
+Function that renders tool allowing to score student's quiz manually.
 """
 @user_passes_test(is_teacher)
-def quizz_scoring(request, enrolled_id):
-    enrolled_quizz = get_object_or_404(EnrolledQuizz, pk=enrolled_id, submitted=True)
+def quiz_scoring(request, enrolled_id):
+    enrolled_quiz = get_object_or_404(EnrolledQuiz, pk=enrolled_id, submitted=True)
 
     return render(
         request,
-        "web/quizz/quizz.html",
+        "web/quiz/quiz.html",
         {
-            "quizz": enrolled_quizz.assigned_quizz.quizz,
-            "enrolled_id": enrolled_quizz.id,
+            "quiz": enrolled_quiz.assigned_quiz.quiz,
+            "enrolled_id": enrolled_quiz.id,
             "remaining": None,
-            "scoring": json.dumps(enrolled_quizz.scoring),
-            "student": enrolled_quizz.student.username,
-            "answers": json.dumps(enrolled_quizz.submit),
-            "quizz_html": json.dumps(
-                quizz_to_html(enrolled_quizz.assigned_quizz.quizz.src, enrolled_quizz.template.content))
+            "scoring": json.dumps(enrolled_quiz.scoring),
+            "student": enrolled_quiz.student.username,
+            "answers": json.dumps(enrolled_quiz.submit),
+            "quiz_html": json.dumps(
+                quiz_to_html(enrolled_quiz.assigned_quiz.quiz.src, enrolled_quiz.template.content))
         },
     )
 
 
 """
-Function that renders quizz edit page, or returns 404 if quizz not exists.
+Function that renders quiz edit page, or returns 404 if quiz not exists.
 
-Raises an Exception if there are multiple assignments of one quizz for one class, which is not allowed.
+Raises an Exception if there are multiple assignments of one quiz for one class, which is not allowed.
 """
 @user_passes_test(is_teacher)
-def quizz_edit(request, quizz_id: int):
-    quizz = get_object_or_404(Quizz, pk=quizz_id)
+def quiz_edit(request, quiz_id: int):
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
 
-    return render(request, "web/quizz/quizz_edit.html", {
-        "id": quizz_id,
-        "assignments": json.dumps(quizz_assigned_classes(quizz, request.user.id)),
+    return render(request, "web/quiz/quiz_edit.html", {
+        "id": quiz_id,
+        "assignments": json.dumps(quiz_assigned_classes(quiz, request.user.id)),
         "teacher": request.user.username,
-        "deletable": quizz.assignedquizz_set.count() == 0,
-        "quizz_directory": quizz.src
+        "deletable": quiz.assignedquiz_set.count() == 0,
+        "quiz_directory": quiz.src
     })
 
 
 """
-Function that renders detail of a quizz.
+Function that renders detail of a quiz.
 """
 @user_passes_test(is_teacher)
-def quizz_detail(request, quizz_id):
-    quizz = get_object_or_404(Quizz, pk=quizz_id)
+def quiz_detail(request, quiz_id):
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
 
-    quizz_dto = quizz.get_dto()
+    quiz_dto = quiz.get_dto()
 
-    if quizz_dto.shuffle:
-        random.shuffle(quizz_dto.questions)
+    if quiz_dto.shuffle:
+        random.shuffle(quiz_dto.questions)
 
-        for question in quizz_dto.questions:
+        for question in quiz_dto.questions:
             if question.answers is not None:
                 random.shuffle(question.answers)
 
     return render(
         request,
-        "web/quizz/quizz.html",
+        "web/quiz/quiz.html",
         {
-            "quizz": quizz,
+            "quiz": quiz,
             "enrolled_id": None,
             "answers": None,
             "remaining": None,
             "scoring": None,
             "student": None,
-            "quizz_html": json.dumps(quizz_to_html(quizz.src, json.loads(to_json(quizz_dto))))
+            "quiz_html": json.dumps(quiz_to_html(quiz.src, json.loads(to_json(quiz_dto))))
         },
     )
 
@@ -404,21 +404,21 @@ def quizz_detail(request, quizz_id):
 Function that renders page with all quizzes.
 """
 @user_passes_test(is_teacher)
-def quizz_list(request):
-    return render(request, "web/quizz/quizz_list.html")
+def quiz_list(request):
+    return render(request, "web/quiz/quiz_list.html")
 
 
 """
-Function that renders page with submits for quizz and its assigned classes.
+Function that renders page with submits for quiz and its assigned classes.
 """
 @user_passes_test(is_teacher)
-def quizz_submits(request, quizz_id: int):
-    quizz = get_object_or_404(Quizz, pk=quizz_id)
+def quiz_submits(request, quiz_id: int):
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
 
     return render(
         request,
-        "web/quizz/quizz_submit_list.html",
+        "web/quiz/quiz_submit_list.html",
         {
-            "quizz_id": quizz.id,
+            "quiz_id": quiz.id,
         },
     )

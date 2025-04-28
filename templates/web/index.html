@@ -88,27 +88,27 @@
                                     </td>
                                 </tr>
                             {% endfor %}
-                            {% for quizz in node.quizzes %}
+                            {% for quiz in node.quizzes %}
                                 <tr>
                                     <td>
-                                        <a href="{% url 'quizz_enrolling' assignment_id=quizz.assignment_id %}">{{ quizz.title }}</a>
+                                        <a href="{% url 'quiz_enrolling' assignment_id=quiz.assignment_id %}">{{ quiz.title }}</a>
                                     </td>
-                                    <td>Quizz</td>
+                                    <td>Quiz</td>
                                     <td>
-                                        {{ quizz.assigned|date:"d.m.Y, H:i" }}
+                                        {{ quiz.assigned|date:"d.m.Y, H:i" }}
                                     </td>
                                     <td>
-                                        {{ quizz.deadline|date:"d.m.Y, H:i" }} <span
-                                            class="text-muted">({{ quizz.deadline|timeuntil }} left)</span>
+                                        {{ quiz.deadline|date:"d.m.Y, H:i" }} <span
+                                            class="text-muted">({{ quiz.deadline|timeuntil }} left)</span>
                                     </td>
                                     <td class="text-end">
-                                        {% if quizz.earned_points is not None %}
-                                            {{ quizz.earned_points|floatformat:2 }}
+                                        {% if quiz.earned_points is not None %}
+                                            {{ quiz.earned_points|floatformat:2 }}
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
-                                        {% if quizz.max_points is not None %}
-                                            {{ quizz.max_points|floatformat:2 }}
+                                        {% if quiz.max_points is not None %}
+                                            {{ quiz.max_points|floatformat:2 }}
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -121,7 +121,7 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class="alert alert-info mb-0">No task or quizz assigned.</p>
+                    <p class="alert alert-info mb-0">No task or quiz assigned.</p>
                 {% endif %}
             </div>
         </div>

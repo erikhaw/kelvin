@@ -1,13 +1,13 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from quizz.models import EnrolledQuizz
-from tests_data.quizz.seed import tests_seed_quizz
+from quiz.models import EnrolledQuiz
+from tests_data.quiz.seed import tests_seed_quiz
 
 class StudentViews(TestCase):
     def setUp(self):
-        (self.teacher, self.students, self.upr, self.upr_class1, self.upr_class2, self.quizz,
-         self.assigned_quizz, self.enrolled_quizz, self.enrolled_student, self.submitted_quizz) = tests_seed_quizz()
+        (self.teacher, self.students, self.upr, self.upr_class1, self.upr_class2, self.quiz,
+         self.assigned_quiz, self.enrolled_quiz, self.enrolled_student, self.submitted_quiz) = tests_seed_quiz()
 
         login = self.client.login(username=self.enrolled_student.username, password='student007')
 
@@ -15,9 +15,9 @@ class StudentViews(TestCase):
 
 
     """
-    Method that tests student working on quizz and submitting it
+    Method that tests student working on quiz and submitting it
     """
-    def test_submit_quizz_results(self):
+    def test_submit_quiz_results(self):
         submit = {
             'test_question_open': [
                 {'answer': 'Hello world'}
@@ -40,15 +40,15 @@ class StudentViews(TestCase):
         """
         Send intermediate results
         """
-        response = self.client.post(reverse('api_quizz_results', args=[self.enrolled_quizz.id, 0]), submit,
+        response = self.client.post(reverse('api_quiz_results', args=[self.enrolled_quiz.id, 0]), submit,
                                     content_type='application/json')
 
         self.assertEqual(response.status_code, 200)
 
-        enrolled_quizz = EnrolledQuizz.objects.get(id=self.enrolled_quizz.id)
+        enrolled_quiz = EnrolledQuiz.objects.get(id=self.enrolled_quiz.id)
 
-        self.assertEqual(enrolled_quizz.submit, submit)
-        self.assertEqual(enrolled_quizz.submitted, False)
+        self.assertEqual(enrolled_quiz.submit, submit)
+        self.assertEqual(enrolled_quiz.submitted, False)
 
         """
         Change one answer and send final submit
@@ -56,24 +56,24 @@ class StudentViews(TestCase):
 
         submit['test_question_abcd_multiple'][0]['answer'] = True
 
-        response = self.client.post(reverse('api_quizz_results', args=[self.enrolled_quizz.id, 1]), submit,
+        response = self.client.post(reverse('api_quiz_results', args=[self.enrolled_quiz.id, 1]), submit,
                                     content_type='application/json')
 
         self.assertEqual(response.status_code, 200)
 
-        enrolled_quizz = EnrolledQuizz.objects.get(id=self.enrolled_quizz.id)
+        enrolled_quiz = EnrolledQuiz.objects.get(id=self.enrolled_quiz.id)
 
-        self.assertEqual(enrolled_quizz.submit, submit)
-        self.assertEqual(enrolled_quizz.submitted, True)
+        self.assertEqual(enrolled_quiz.submit, submit)
+        self.assertEqual(enrolled_quiz.submitted, True)
 
         """
-        Because all answers are correct, score should be equal to max_points of quizz - points of open question, which
+        Because all answers are correct, score should be equal to max_points of quiz - points of open question, which
         is not automatically scored.
         """
 
-        quizz_dto = self.quizz.get_dto()
+        quiz_dto = self.quiz.get_dto()
 
-        self.assertEqual(enrolled_quizz.score(), sum(map(lambda q: q.points if q.type != 'open' else 0, quizz_dto.questions)))
+        self.assertEqual(enrolled_quiz.score(), sum(map(lambda q: q.points if q.type != 'open' else 0, quiz_dto.questions)))
 
         """
         After submit, student should not be able to change answers.
@@ -81,7 +81,7 @@ class StudentViews(TestCase):
 
         submit['test_question_abcd_multiple'][0]['answer'] = False
 
-        response = self.client.post(reverse('api_quizz_results', args=[self.enrolled_quizz.id, 0]), submit,
+        response = self.client.post(reverse('api_quiz_results', args=[self.enrolled_quiz.id, 0]), submit,
                                     content_type='application/json')
 
         self.assertEqual(response.status_code, 403)
@@ -92,16 +92,16 @@ class StudentViews(TestCase):
     """
     def test_endpoints_should_return_302(self):
         test_cases = [
-            {'url_name': 'api_quizz_list', 'args': [], 'expected_status': 302},
-            {'url_name': 'api_quizz_yaml', 'args': [self.quizz.id], 'expected_status': 302},
-            {'url_name': 'api_quizz_question_preview', 'args': [self.quizz.id], 'expected_status': 302},
-            {'url_name': 'api_quizz_scoring', 'args': [0], 'expected_status': 302},
-            {'url_name': 'api_quizz_list_subject', 'args': [self.upr.abbr], 'expected_status': 302},
-            {'url_name': 'api_quizz_submits_list', 'args': [self.quizz.id], 'expected_status': 302},
-            {'url_name': 'api_quizz_submits_list_class', 'args': [self.quizz.id, self.upr_class1.id],
+            {'url_name': 'api_quiz_list', 'args': [], 'expected_status': 302},
+            {'url_name': 'api_quiz_yaml', 'args': [self.quiz.id], 'expected_status': 302},
+            {'url_name': 'api_quiz_question_preview', 'args': [self.quiz.id], 'expected_status': 302},
+            {'url_name': 'api_quiz_scoring', 'args': [0], 'expected_status': 302},
+            {'url_name': 'api_quiz_list_subject', 'args': [self.upr.abbr], 'expected_status': 302},
+            {'url_name': 'api_quiz_submits_list', 'args': [self.quiz.id], 'expected_status': 302},
+            {'url_name': 'api_quiz_submits_list_class', 'args': [self.quiz.id, self.upr_class1.id],
              'expected_status': 302},
-            {'url_name': 'api_quizz_classes', 'args': [self.quizz.id], 'expected_status': 302},
-            {'url_name': 'api_quizz_assignments', 'args': [self.quizz.id], 'expected_status': 302},
+            {'url_name': 'api_quiz_classes', 'args': [self.quiz.id], 'expected_status': 302},
+            {'url_name': 'api_quiz_assignments', 'args': [self.quiz.id], 'expected_status': 302},
         ]
 
         for test_case in test_cases:

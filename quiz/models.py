@@ -7,14 +7,14 @@ from serde.yaml import from_yaml
 
 from common.models import Class, Subject, User, Semester
 from kelvin.settings import BASE_DIR
-from quizz.dto import QuizzDto
+from quiz.dto import QuizDto
 
 """
-Model that represents a quizz.
+Model that represents a quiz.
 """
-class Quizz(models.Model):
+class Quiz(models.Model):
     title = models.CharField(max_length=100)
-    # relative src path of quizz root directory
+    # relative src path of quiz root directory
     src = models.CharField(max_length=255, verbose_name="Directory", unique=True)
     root = models.CharField(max_length=255, default="quizzes")
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
@@ -25,46 +25,46 @@ class Quizz(models.Model):
         return self.title
 
     """
-    Method that writes content to the quizz file.
+    Method that writes content to the quiz file.
     """
     def write(self, yaml_content: str):
         with open(self.get_file_path(), 'w', encoding='utf-8') as file:
             file.write(yaml_content)
 
     """
-    Method that reads content from the quizz file.
+    Method that reads content from the quiz file.
     """
     def read(self):
         with open(self.get_file_path(), 'r', encoding='utf-8') as file:
             return file.read()
 
     """
-    Method that returns the directory path of the quizz.
+    Method that returns the directory path of the quiz.
     """
     def get_directory_path(self):
         return os.path.join(BASE_DIR, self.root, self.src)
 
     """
-    Method that returns the file path of the quizz.
+    Method that returns the file path of the quiz.
     """
     def get_file_path(self):
-        return os.path.join(self.get_directory_path(), "quizz.yml")
+        return os.path.join(self.get_directory_path(), "quiz.yml")
 
     """
-    Method that returns the identifier file path of the quizz.
+    Method that returns the identifier file path of the quiz.
     """
     def get_identifier_path(self):
-        return os.path.join(self.get_directory_path(), ".quizz_id")
+        return os.path.join(self.get_directory_path(), ".quiz_id")
 
     """
-    Method that returns a DTO of the quizz.
+    Method that returns a DTO of the quiz.
     """
     def get_dto(self):
-        return from_yaml(QuizzDto, self.read())
+        return from_yaml(QuizDto, self.read())
 
 
     """
-    Method that tries to set up the new directory for the quizz, returns True if successful, False if folder already
+    Method that tries to set up the new directory for the quiz, returns True if successful, False if folder already
     exists, raise OSError otherwise.
     """
     def set_up_directory(self, new_src: str):
@@ -90,10 +90,10 @@ class Quizz(models.Model):
 
 
 """
-Model that represents an assigned quizz.
+Model that represents an assigned quiz.
 """
-class AssignedQuizz(models.Model):
-    quizz = models.ForeignKey(Quizz, on_delete=models.CASCADE)
+class AssignedQuiz(models.Model):
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
     clazz = models.ForeignKey(Class, on_delete=models.CASCADE)
     assigned = models.DateTimeField()
     duration = models.IntegerField() # in minutes
@@ -102,33 +102,33 @@ class AssignedQuizz(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.quizz.title} {self.clazz}"
+        return f"{self.quiz.title} {self.clazz}"
 
     """
-    Method that returns the maximum points of the assigned quizz.
+    Method that returns the maximum points of the assigned quiz.
     """
     def max_points(self):
-        return sum(map(lambda q: q.points, self.quizz.get_dto().questions))
+        return sum(map(lambda q: q.points, self.quiz.get_dto().questions))
 
 
 """
-Model that represents a template of enrolled quizz.
+Model that represents a template of enrolled quiz.
 """
-class TemplateQuizz(models.Model):
+class TemplateQuiz(models.Model):
     content = models.JSONField(default=dict)
     hash = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Quizz template {self.id}"
+        return f"Quiz template {self.id}"
 
 
 """
-Model that represents an enrolled quizz.
+Model that represents an enrolled quiz.
 """
-class EnrolledQuizz(models.Model):
-    assigned_quizz = models.ForeignKey(AssignedQuizz, on_delete=models.CASCADE)
-    template = models.ForeignKey(TemplateQuizz, on_delete=models.CASCADE, null=True)
+class EnrolledQuiz(models.Model):
+    assigned_quiz = models.ForeignKey(AssignedQuiz, on_delete=models.CASCADE)
+    template = models.ForeignKey(TemplateQuiz, on_delete=models.CASCADE, null=True)
     student = models.ForeignKey(User, on_delete=models.CASCADE)
     deadline = models.DateTimeField()
     max_points = models.FloatField(default=0.0)
@@ -140,7 +140,7 @@ class EnrolledQuizz(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     """
-    Method that sums assigned scores of questions and returns the total score of the quizz.
+    Method that sums assigned scores of questions and returns the total score of the quiz.
     """
     def score(self):
         score = 0.0
@@ -149,11 +149,11 @@ class EnrolledQuizz(models.Model):
         return score
 
     def __str__(self):
-        return f"{self.assigned_quizz.quizz.title} {self.student} {self.id}"
+        return f"{self.assigned_quiz.quiz.title} {self.student} {self.id}"
 
 
     """
-    Method that computes the score of a submitted quizz for questions that are possible to score automatically.
+    Method that computes the score of a submitted quiz for questions that are possible to score automatically.
 
     Automatically scored questions are of type: abcd, abcd.multiple 
     """
@@ -196,23 +196,23 @@ class EnrolledQuizz(models.Model):
         self.save()
 
 """
-Function that returns a list of classes that are/can be assigned to the quizz.
+Function that returns a list of classes that are/can be assigned to the quiz.
 """
-def quizz_assigned_classes(quizz: Quizz, requested_by: int):
-    classes = Class.objects.current_semester().filter(subject=quizz.subject)
+def quiz_assigned_classes(quiz: Quiz, requested_by: int):
+    classes = Class.objects.current_semester().filter(subject=quiz.subject)
     user = User.objects.get(pk=requested_by)
 
     assignments_dtos = []
 
     for clazz in classes:
-        assignment = AssignedQuizz.objects.filter(quizz=quizz.id, clazz=clazz.id)
+        assignment = AssignedQuiz.objects.filter(quiz=quiz.id, clazz=clazz.id)
         if assignment.count() == 0:
             assignments_dtos.append({'id': clazz.id, 'name': str(clazz), 'code': clazz.code,
                                  'teacher': clazz.teacher.username, 'timeslot': clazz.timeslot,
                                  'visible': clazz.teacher.id == user.id, 'deletable': True})
         elif assignment.count() == 1:
             assignment = assignment[0]
-            deletable = assignment.enrolledquizz_set.count() == 0
+            deletable = assignment.enrolledquiz_set.count() == 0
 
             assignments_dtos.append({'id': clazz.id, 'name': str(clazz), 'assigned_id': assignment.id,
                                  'assigned': str(assignment.assigned), 'deadline': str(assignment.deadline),

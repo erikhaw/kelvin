@@ -56,17 +56,17 @@ function totalTaskPoints(clazz, assignment_index) {
   return assignmentPoints;
 }
 
-function totalQuizzPoints(clazz, quizz_index) {
-  let quizzPoints = 0;
+function totalQuizPoints(clazz, quiz_index) {
+  let quizPoints = 0;
 
   for (let i = 0; i < clazz.students.length; i++) {
     const student = clazz.students[i];
-    if (!isNaN(clazz.quizzes[quizz_index].students[student.username].score)) {
-      quizzPoints += Math.max(0, clazz.quizzes[quizz_index].students[student.username].score);
+    if (!isNaN(clazz.quizzes[quiz_index].students[student.username].score)) {
+      quizPoints += Math.max(0, clazz.quizzes[quiz_index].students[student.username].score);
     }
   }
 
-  return quizzPoints;
+  return quizPoints;
 }
 
 function createTaskSummary(clazz, assignment_index) {
@@ -243,41 +243,41 @@ let showSummary = false;
                       </div>
                     </th>
                   {/each}
-                  {#each clazz.quizzes as quizz, index}
+                  {#each clazz.quizzes as quiz, index}
                     <th class="more-hover">
                       <a
-                        href={quizz.quizz_link}
-                        class:text-muted={quizz.assigned > new Date()}
-                        class:text-success={quizz.deadline > new Date()}>
-                        {$showFullNames ? quizz.name_lower
-                         : `#Q${index + 1}`}{#if quizz.max_points > 0}&nbsp;({quizz.max_points}b){/if}
+                        href={quiz.quiz_link}
+                        class:text-muted={quiz.assigned > new Date()}
+                        class:text-success={quiz.deadline > new Date()}>
+                        {$showFullNames ? quiz.name_lower
+                         : `#Q${index + 1}`}{#if quiz.max_points > 0}&nbsp;({quiz.max_points}b){/if}
                       </a>
                       <div class="more-content border shadow rounded bg-body p-1">
-                        {quizz.name}
-                        <a href="{quizz.quizz_edit_link}" title="Edit"
+                        {quiz.name}
+                        <a href="{quiz.quiz_edit_link}" title="Edit"
                           ><span class="iconify" data-icon="clarity:edit-solid"></span></a>
                         <dl>
                           <dt>Assigned</dt>
                           <dd>
-                            {quizz.assigned.toLocaleString(
+                            {quiz.assigned.toLocaleString(
                               'cs'
-                            )}{#if quizz.assigned > new Date()}, <TimeAgo
-                                datetime={quizz.assigned} />{/if}
+                            )}{#if quiz.assigned > new Date()}, <TimeAgo
+                                datetime={quiz.assigned} />{/if}
                           </dd>
 
-                          {#if quizz.deadline}
+                          {#if quiz.deadline}
                             <dt>Deadline</dt>
                             <dd>
-                              {quizz.deadline.toLocaleString(
+                              {quiz.deadline.toLocaleString(
                                 'cs'
-                              )}{#if quizz.deadline > new Date()}, <TimeAgo
-                                  datetime={quizz.deadline} />{/if}
+                              )}{#if quiz.deadline > new Date()}, <TimeAgo
+                                  datetime={quiz.deadline} />{/if}
                             </dd>
                           {/if}
-                          {#if quizz.max_points}
+                          {#if quiz.max_points}
                             <dt>Max points</dt>
                             <dd>
-                              {quizz.max_points}
+                              {quiz.max_points}
                             </dd>
                           {/if}
                         </dl>
@@ -322,7 +322,7 @@ let showSummary = false;
                       >{totalTaskPoints(clazz, k).toFixed(2)}</td>
                   {/each}
                   {#each clazz.quizzes as _, k}
-                    <td>{totalQuizzPoints(clazz, k).toFixed(2)}</td>
+                    <td>{totalQuizPoints(clazz, k).toFixed(2)}</td>
                   {/each}
                   <td></td>
                 </tr>

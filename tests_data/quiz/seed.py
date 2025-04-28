@@ -7,14 +7,14 @@ from django.utils import timezone
 from serde.json import to_json
 from serde.yaml import to_yaml
 
-from quizz.models import Quizz, AssignedQuizz, TemplateQuizz, EnrolledQuizz
+from quiz.models import Quiz, AssignedQuiz, TemplateQuiz, EnrolledQuiz
 
 from tests_data.common.seed import tests_seed_common
 
-def tests_seed_quizz():
+def tests_seed_quiz():
     (teacher, students, upr, upr_class1, upr_class2, semester) = tests_seed_common()
 
-    quizz_data = {
+    quiz_data = {
         "questions": [
             {
                 "content": 'What is output of this line of code?\n\n```c\nprintf("Hello world");\n```',
@@ -97,16 +97,16 @@ def tests_seed_quizz():
         ]
     }
 
-    quizz = Quizz.objects.create(title='Test Quizz', subject=upr, root='tests_data', src='quizz/quizzes/',
+    quiz = Quiz.objects.create(title='Test Quiz', subject=upr, root='tests_data', src='quiz/quizzes/',
                                  semester=semester)
 
-    quizz.write(to_yaml(quizz_data))
+    quiz.write(to_yaml(quiz_data))
 
     now = timezone.now()
 
     tomorrow = now + timedelta(days=1)
 
-    assigned_quizz = AssignedQuizz.objects.create(quizz=quizz, clazz=upr_class1, assigned=now, duration=60,
+    assigned_quiz = AssignedQuiz.objects.create(quiz=quiz, clazz=upr_class1, assigned=now, duration=60,
                                                   deadline=tomorrow, publish_results=True)
 
     enrolled_student = User.objects.create_user('enrolled_student', 'enrolled@testing.com', 'student007')
@@ -115,22 +115,22 @@ def tests_seed_quizz():
     upr_class1.students.add(enrolled_student)
     upr_class1.students.add(submitted_student)
 
-    quizz_dto = quizz.get_dto()
+    quiz_dto = quiz.get_dto()
 
-    quizz_json = to_json(quizz_dto).encode('utf-8')
+    quiz_json = to_json(quiz_dto).encode('utf-8')
 
-    quizz_json_hash = hashlib.sha256(quizz_json).hexdigest()
+    quiz_json_hash = hashlib.sha256(quiz_json).hexdigest()
 
     try:
-        template = TemplateQuizz.objects.get(hash=quizz_json_hash)
-    except TemplateQuizz.DoesNotExist:
-        template = TemplateQuizz.objects.create(hash=quizz_json_hash, content=json.loads(quizz_json))
+        template = TemplateQuiz.objects.get(hash=quiz_json_hash)
+    except TemplateQuiz.DoesNotExist:
+        template = TemplateQuiz.objects.create(hash=quiz_json_hash, content=json.loads(quiz_json))
         template.save()
 
-    enrolled_quizz = EnrolledQuizz.objects.create(assigned_quizz=assigned_quizz, template=template,
+    enrolled_quiz = EnrolledQuiz.objects.create(assigned_quiz=assigned_quiz, template=template,
                                                   student=enrolled_student,
-                                                  max_points=sum(map(lambda q: q.points, quizz_dto.questions)),
-                                                  deadline=now + timedelta(minutes=assigned_quizz.duration))
+                                                  max_points=sum(map(lambda q: q.points, quiz_dto.questions)),
+                                                  deadline=now + timedelta(minutes=assigned_quiz.duration))
 
     submit = {
         'test_question_open': [
@@ -151,12 +151,12 @@ def tests_seed_quizz():
         ],
     }
 
-    submitted_quizz = EnrolledQuizz.objects.create(assigned_quizz=assigned_quizz, template=template,
+    submitted_quiz = EnrolledQuiz.objects.create(assigned_quiz=assigned_quiz, template=template,
                                                    student=submitted_student,
-                                                   max_points=sum(map(lambda q: q.points, quizz_dto.questions)),
-                                                   deadline=now + timedelta(minutes=assigned_quizz.duration),
+                                                   max_points=sum(map(lambda q: q.points, quiz_dto.questions)),
+                                                   deadline=now + timedelta(minutes=assigned_quiz.duration),
                                                    submit=submit, submitted=True)
-    submitted_quizz.score_questions()
+    submitted_quiz.score_questions()
 
-    return (teacher, students, upr, upr_class1, upr_class2, quizz, assigned_quizz, enrolled_quizz, enrolled_student,
-            submitted_quizz)
+    return (teacher, students, upr, upr_class1, upr_class2, quiz, assigned_quiz, enrolled_quiz, enrolled_student,
+            submitted_quiz)

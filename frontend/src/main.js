@@ -154,10 +154,10 @@ import AllTasks from './Teacher/AllTasks.vue';
 import InbusImport from './Teacher/InbusImport.vue';
 import NotificationsNew from './components/Notifications.vue';
 import ColorThemeNew from './components/ColorTheme.vue';
-import Quizz from "./Quizz/Quizz.vue"
-import QuizzEdit from "./Quizz/QuizzEdit.vue";
-import QuizzList from "./Quizz/Lists/QuizzList.vue";
-import QuizzSubmitList from "./Quizz/Lists/QuizzSubmitList.vue";
+import Quiz from "./Quiz/Quiz.vue"
+import QuizEdit from "./Quiz/QuizEdit.vue";
+import QuizList from "./Quiz/Lists/QuizList.vue";
+import QuizSubmitList from "./Quiz/Lists/QuizSubmitList.vue";
 
 /**
  * Register new Vue component as a custom element.
@@ -197,7 +197,7 @@ registerSuspendedVueComponent('tasks-all', AllTasks);
 registerSuspendedVueComponent('inbus-import', InbusImport);
 registerVueComponent('notifications', NotificationsNew);
 if (enableNewUI) registerVueComponent('color-theme', ColorThemeNew);
-registerSuspendedVueComponent('quizz', Quizz);
-registerSuspendedVueComponent('quizz-edit', QuizzEdit);
-registerSuspendedVueComponent('quizz-list', QuizzList);
-registerSuspendedVueComponent('quizz-submit-list', QuizzSubmitList);
+registerSuspendedVueComponent('quiz', Quiz);
+registerSuspendedVueComponent('quiz-edit', QuizEdit);
+registerSuspendedVueComponent('quiz-list', QuizList);
+registerSuspendedVueComponent('quiz-submit-list', QuizSubmitList);
