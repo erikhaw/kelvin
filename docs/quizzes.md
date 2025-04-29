@@ -87,4 +87,15 @@ answers:
     negative: 100
 ```
 
+## Automated tests
+
+Automated tests can be run by following commands:
+
+```bash
+python3 manage.py test api.tests.tests_api_quiz_student
+python3 manage.py test api.tests.tests_api_quiz_teacher
+python3 manage.py test web.tests.tests_views_quiz_teacher
+python3 manage.py test web.tests.tests_views_quiz_student
+```
+
 
