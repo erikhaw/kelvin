@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.models import User
 from django.urls import reverse
 from numpy.lib.recfunctions import assign_fields_by_name
+from serde import SerdeError
 from serde.json import from_json
 from serde.yaml import to_yaml
 from unidecode import unidecode
@@ -1024,6 +1025,14 @@ Function to assign or remove quizzes from classes.
 @user_passes_test(is_teacher)
 def quiz_assignments(request: HttpRequest, quiz_id: int):
     quiz = get_object_or_404(Quiz, pk=quiz_id)
+
+    try:
+        quiz.get_dto()
+    except SerdeError:
+        return JsonResponse(
+            {"message": "Impossible to assign quiz with invalid content.", "assignments": quiz_assigned_classes(quiz, request.user.id),
+             "quiz_deletable": True}
+        )
 
     if request.method == 'POST':
         post = json.loads(request.body.decode("utf-8"))

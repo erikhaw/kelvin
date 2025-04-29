@@ -69,7 +69,7 @@ const saveAssignments = async () => {
   );
 
   if (data) {
-    toast.success(data.message);
+    toast.info(data.message);
     quizDeletable.value = data.quiz_deletable;
     assignmentsData.value = data.assignments;
   } else {
